@@ -3,8 +3,15 @@ import numpy as np
 import pyodbc
 import datetime
 
+db_list = ['CINRE_LC', 'CINRE_DealSheet', 'CINRE_SAP',
+           'CINRE_PRICING_AIRv10', 'CorpAct_Reserving']
 
-def constr(database_name: str, server_name: str = "Corpsqlhqpcf060\HS1,4911", driver_name: str = "SQL Server", trusted_connection: str = "yes") -> str:
+
+def constr(
+        database_name: str,
+        server_name: str = "Corpsqlhqpcf060\HS1,4911",
+        driver_name: str = "SQL Server", trusted_connection:
+        str = "yes") -> str:
     """
     # Description: 
         Function to build the connection string for the database
@@ -28,26 +35,31 @@ def constr(database_name: str, server_name: str = "Corpsqlhqpcf060\HS1,4911", dr
 
     # Example:
         constr('CINRE_LC')
-        > 'Driver={SQL Server};Server=Corpsqlhqpcf060\HS1,4911;Database=CINRE_LC;Trusted_Connection=yes;'
+        > 'Driver={SQL Server};Server=Corpsqlhqpcf060\HS1,4911;
+           Database=CINRE_LC;Trusted_Connection=yes;'
 
         constr("CorpAct_Reserving", "different_server", "Fake Driver", "no")
-        > 'Driver={Fake Driver};Server=different_server;Database=CorpAct_Reserving;Trusted_Connection=no;'
+        > 'Driver={Fake Driver};Server=different_server;
+           Database=CorpAct_Reserving;Trusted_Connection=no;'
     """
     # return the connection string
-    return (r'Driver={};'r'Server={};'r'Database={};'r'Trusted_Connection={};'.format(driver_name, server_name, database_name, trusted_connection))
+    return (r'Driver={};'r'Server={};'r'Database={};'r'Trusted_Connection={};'
+            .format(driver_name, server_name, database_name, trusted_connection))
 
 
-def connect_to_dbs(*args: str = ('CINRE_LC', 'CINRE_DealSheet', 'CINRE_SAP', 'CINRE_PRICING_AIRv10', 'CorpAct_Reserving')):
+def connect_to_dbs(*args: str) -> dict(str, pyodbc.Connection):
     """
     # Description:
         Function that takes an arbitrary number of database names and returns
         a dictionary of connection strings whose keys are the database names and
         whose values are the connection strings
 
+        If no arguments are passed, the function will use the global variable db_list
+        as the list of databases to connect to
+
     # Parameters:
         args:
             string, name of the database (e.g. 'CINRE_LC')
-            default: ('CINRE_PRICING_AIRv10', 'CINRE_LC', 'CINRE_DealSheet', 'CINRE_SAP', 'CorpAct_Reserving')
 
     # Output:
         dictionary of connection strings for the databases
@@ -70,6 +82,11 @@ def connect_to_dbs(*args: str = ('CINRE_LC', 'CINRE_DealSheet', 'CINRE_SAP', 'CI
         > {'CINRE_LC': <pyodbc.Connection object at 0x0000020B1B0F0C88>,
             'CINRE_DealSheet': <pyodbc.Connection object at 0x0000020B1B0F0C88>}
         """
+
+    # if no arguments are passed, use the global variable db_list
+    if len(args) == 0:
+        args = db_list
+
     # loop through the args and build the dictionary
     return {x: pyodbc.connect(constr(x)) for x in args}
 
@@ -82,7 +99,7 @@ def readtbl(table_name: str, conn: pyodbc.Connection) -> pd.DataFrame:
 
     # Parameters:
         table_name:
-            string, name of the table (e.g. 'CINRE_LC.dbo.CINRE_LC')    
+            string, name of the table (e.g. 'CINRE_LC.dbo.CINRE_LC')
         conn:
             pyodbc.Connection object, connection to the database
 
@@ -132,7 +149,11 @@ def build_timestamp(nearest: int = 10) -> datetime.datetime:
     return (now - (now - datetime.datetime.min) % datetime.timedelta(minutes=nearest))
 
 
-def raw_lookup_tbl(df: pd.DataFrame, id_col_name: str, col_list: list, nearest: int = 10) -> pd.DataFrame:
+def raw_lookup_tbl(
+        df: pd.DataFrame,
+        id_col_name: str,
+        col_list: list,
+        nearest: int = 10) -> pd.DataFrame:
     """
     # Description:
         Function that takes a dataframe, a column name, and a list of columns and returns a dataframe
@@ -246,18 +267,24 @@ def all4hierarchy(*args: pd.Series) -> pd.Series:
         all4hierarchy(ds, lc, air, sap)
         > 0     2
     """
-    # build the dataframe
-    df = pd.DataFrame(dict(ds=ds, lc=lc, air=air, sap=sap))
+    # build the dataframe from the series
+    # example: if we have 4 series, ds, lc, air, sap, then
+    # df = pd.DataFrame(dict(ds=ds, lc=lc, air=air, sap=sap))
+    # we can use the *args to do this as well, and it is more
+    # flexible. use the zip() function to build the dictionary
+    # and the dict() function to build the dataframe
+    df = pd.DataFrame(dict(zip(args)))
 
     # filter the dataframe to get the first non-null value
     # with an effect similar to the COALESCE function in SQL
-
     # use apply to get the first non-null value, using the `first_valid_index()`
     # method, that comes from the pandas documentation
     return (df.apply(lambda x: x.first_valid_index(), axis=1))
 
 
-def cinre_lc_contract(lc_conn: pyodbc.Connection, earliest_inception: str = '2020-01-01') -> pd.DataFrame:
+def cinre_lc_contract(
+        lc_conn: pyodbc.Connection,
+        earliest_inception: str = '2020-01-01') -> pd.DataFrame:
     """
     # Description:
         Function that reads in the contract table from the loss cost database
@@ -407,44 +434,73 @@ def cinre_dealsheet_contract(ds_conn: pyodbc.Connection, earliest_inception: str
     contract_ds = contract_ds.merge(
         layer, how='left', on='crm_gp_id_ds eff_date_ds exp_date_ds'.split())
 
-    # recode category columnms
-    # for col in ['client_name_ds','reassured_ds','contract_name_ds','dominant_type_ds','mga_ds','broker_ds','treaty_category_ds','line_ds','status_ds','source_file_ds','share_point_file_ds','note_ds','cyber_exposure_ds','subline_ds','company_id_ds']:
-    # contract_ds[col] = contract_ds[col].astype('category')
-
     # return table
     return (contract_ds)
 
 
-def cinre_air_contract(air_conn):
+def cinre_air_contract(air_conn: pyodbc.Connection, earliest_inception: str = "2020-01-01") -> pd.DataFrame:
+    """
+    # Description
+        Read in the `Contract` table from the AIR database, and return it as a pandas DataFrame.
+
+    # Parameters
+        air_conn: pyodbc.Connection
+            Connection to the AIR database.
+        earliest_inception: str
+            Earliest inception date to include in the returned table.
+            Must be in ISO format (e.g. '2020-01-01').
+
+    # Output
+        contract_air: pd.DataFrame
+            `Contract` table from the AIR database.
+
+    # Example
+        >>> contract_air = cinre_air_contract(air_conn)
+        >>> contract_air.head()
+        #  client_name client_id_numb   eff_date   ... crm_gp_id template_source
+        # 0  Client 1        1234567 2020-01-01   ...  1234567   template name
+        # 1  Client 2        2345678 2020-01-01   ...  2345678   template name
+        # 2  Client 3        3456789 2020-01-01   ...  3456789   template name
+        # 3  Client 4        4567890 2020-01-01   ...  4567890   template name
+        # 4  Client 5        5678901 2020-01-01   ...  5678901   template name
+        # [5 rows x 25 columns]
+    """
+
+    # print status message
     print('reading Contract table from AIR DB')
-    # variable lists
-    air_new_cols = 'client_name client_id_numb eff_date exp_date program crm_gp_id2 wp_contract occ_limit_contract agg_limit_contract status region note last_updated has_pc user_name file_location broker executive_summary currency crm_id fx_rate_id template_altered crm_gp_id template_source'.split()
+
+    # list of new column names
+    air_new_cols = ['client_name', 'client_id_numb', 'eff_date', 'exp_date',
+                    'program', 'crm_gp_id2', 'wp_contract', 'occ_limit_contract', 'agg_limit_contract',
+                    'status', 'region', 'note', 'last_updated', 'has_pc', 'user_name', 'file_location',
+                    'broker', 'executive_summary', 'currency', 'crm_id', 'fx_rate_id', 'template_altered',
+                    'crm_gp_id', 'template_source']
+
+    # list of statuses to exclude
     air_status_excl = ["Not Bound", "reference", "not bound",
                        "Declined", "wip", "Wip", "NTU", "ntu", "started"]
 
     # read in table
-    contract_air = readtbl(['Contract_New', air_conn])
+    contract_air = readtbl('Contract_New', air_conn)
 
     # rename columns
     contract_air.rename(columns=dict(zip(contract_air.columns.tolist(), [
                         c + '_air' for c in air_new_cols])), inplace=True)
 
-    # recode dates
-    for c in ['eff_date_air', 'exp_date_air']:
-        contract_air[c] = pd.to_datetime(contract_air[c])
+    # recode dates using the `pd.to_datetime` function
+    # for c in ['eff_date_air', 'exp_date_air']:
+    #     contract_air[c] = pd.to_datetime(contract_air[c])
+    contract_air[['eff_date_air', 'exp_date_air']] = [pd.to_datetime(
+        contract_air[c]) for c in 'eff_date_air exp_date_air'.split()]
 
-    # only contracts effective 2020 & later
+    # drop rows with dates before `earliest_inception`
     contract_air = contract_air.loc[contract_air.eff_date_air >=
-                                    datetime.datetime.fromisoformat('2020-01-01'), :]
-
-    # recode categories
-    # for c in 'client_name_air program_air status_air region_air note_air has_pc_air user_name_air file_location_air broker_air executive_summary_air currency_air crm_id_air template_altered_air template_source_air'.split():
-    # contract_air[c] = contract_air[c].astype('category')
+                                    datetime.datetime.fromisoformat(earliest_inception), :]
 
     # drop some columns I don't want to carry forward
     colstodrop = ['crm_gp_id2_air', 'wp_contract_air', 'occ_limit_contract_air', 'agg_limit_contract_air',
                   'template_altered_air', 'has_pc_air', 'fx_rate_id_air', 'template_source_air']
-    contract_air.drop(colstodrop, 1, inplace=True)
+    contract_air.drop(columns=colstodrop, inplace=True)
 
     # drop treaties not bound
     contract_air = contract_air.query('status_air != @air_status_excl')
@@ -452,11 +508,21 @@ def cinre_air_contract(air_conn):
     # return table
     return (contract_air)
 
+# RESTART HERE
 
-def cinre_sap_contract(sap_conn):
+
+def cinre_sap_contract(sap_conn: pyodbc.Connection, earliest_date: str = "2020-01-01") -> pd.DataFrame:
+    """
+    # Description
+        Read in the `Contract` table from the SAP database, and return it as a pandas DataFrame.
+
+    # Parameters
+        sap_conn: pyodbc.Connection
+
+    """
+
     print('reading Contract table from SAP DB')
-    '''reads in a connection object for the SAP database, returns the contract table
-    '''
+
     # read in table
     contract_sap = readtbl(['Treaty$', sap_conn])
 
