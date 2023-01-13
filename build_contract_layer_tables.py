@@ -37,13 +37,13 @@ def constr(
     # return the connection string
     return (r'Driver={};'r'Server={};'r'Database={};'r'Trusted_Connection={};'.format(driver_name, server_name, database_name, trusted_connection))
 
-# function that takes an arbitrary number of server names and returns a dictionary of connection strings
-
 
 def connect_to_dbs(*args: str = ('CINRE_LC', 'CINRE_DealSheet', 'CINRE_SAP', 'CINRE_PRICING_AIRv10', 'CorpAct_Reserving')):
     """
     # Description:
-        Function to connect to the databases
+        Function that takes an arbitrary number of database names and returns
+        a dictionary of connection strings whose keys are the database names and
+        whose values are the connection strings
 
     # Parameters:
         args:
@@ -74,37 +74,125 @@ def connect_to_dbs(*args: str = ('CINRE_LC', 'CINRE_DealSheet', 'CINRE_SAP', 'CI
     # loop through the args and build the dictionary
     return {x: pyodbc.connect(constr(x)) for x in args}
 
-# function to read in tables from each db
+
+def readtbl(
+        table_name: str, conn: pyodbc.Connection) -> pd.DataFrame:
+    """
+    # Description:
+        Function that takes a table name and a connection object and returns a dataframe
+        containing the data from the table
+
+    # Parameters:
+        table_name:
+            string, name of the table (e.g. 'CINRE_LC.dbo.CINRE_LC')    
+        conn:
+            pyodbc.Connection object, connection to the database
+
+    # Output:
+        dataframe containing the data from the table
+
+    # Example:
+        # assume the table CINRE_LC.dbo.CINRE_LC exists in the database CINRE_LC
+        # and is 3 rows two columns with A, B, C, D, E, F as the data and the columns
+        # are named col1 and col2
+        conn = connect_to_dbs()['CINRE_LC']
+        readtbl('CINRE_LC.dbo.CINRE_LC', conn)
+        >  col1 col2
+        0    A    B
+        1    C    D
+        2    E    F
+    """
+    # read the table into a dataframe using the connection
+    return pd.read_sql_query('select * from [{}]'.format(table_name), conn)
 
 
-def readtbl(x): return pd.read_sql_query(
-    'select * from [{}]'.format(x[0]), x[1])
+def build_timestamp(
+        nearest: int = 10) -> datetime.datetime:
+    """
+    # Description:
+        Function that takes a number of minutes and returns a timestamp rounded to the nearest
+        number of minutes. The default is 10 minutes.
 
-# function to build the timestamp
+    # Parameters:
+        nearest:
+            int, number of minutes to round to (e.g. 10)
+            default: 10
 
+    # Output:
+        timestamp rounded to the nearest number of minutes
 
-def build_timestamp(nearest=10):
+    # Example:
+        # assume the time is 10:03:00, on 3/2/2027
+        build_timestamp()
+        > datetime.datetime(2027, 3, 2, 10, 0) # 10:00:00 is the nearest 10 minutes
+    """
     # build the timstamp for when the data are pulled rounded to 10 minutes
+    # this is done by:
+    # subtracting the current time from
+    # the minimum time and then
+    # rounding to the nearest 10 minutes
     now = datetime.datetime.now()
     return (now - (now - datetime.datetime.min) % datetime.timedelta(minutes=nearest))
 
 
-def raw_lookup_tbl(df, id_col_name, col_list):
+def raw_lookup_tbl(
+        df: pd.DataFrame, id_col_name: str, col_list: list, nearest: int = 10) -> pd.DataFrame:
+    """
+    # Description:
+        Function that takes a dataframe, a column name, and a list of columns and returns a dataframe
+        containing the unique values of the columns in the list and the index of the unique values
+        in the column name
 
-    # build dataframe
-    col_df = (df[col_list]
-              .drop_duplicates()
-              .sort_values(col_list)
-              .reset_index(drop=True)
-              .reset_index()
-              .rename(columns=dict(index=id_col_name)))
+    # Parameters:
+        df:
+            dataframe, dataframe containing the data
+        id_col_name:
+            string, name of the column to use as the index
+        col_list:
+            list, list of columns to use as the values
 
-    # build the timstamp for when the data are pulled rounded to 10 minutes
-    col_df['timestamp'] = build_timestamp()
+    # Output:
+        dataframe containing the unique values of the columns in the list and the index of the unique values
+        in the column name. this is used to build lookup tables and set up a star schema so that the
+        data can be normalized
 
-    # reorder columns
+    # Example:
+        # assume the dataframe df is 3 rows two columns first A, A, A, B, B, B, second 1,2,3,4,5,6, 
+        # and third X1, X2, X3, X3, X2, X1
+        # with columns named col1, col2, col3
+        raw_lookup_tbl(df, 'col1_id', ['col1'])
+        >   timestamp col1_id col1
+        0 2020-03-02       0    A
+        1 2020-03-02       1    B
+
+        raw_lookup_tbl(df, 'col3_id', ['col3'])
+        >   timestamp col3_id col3  
+        0 2020-03-02       0    X1
+        1 2020-03-02       1    X2
+        2 2020-03-02       2    X3
+    """
+
+    # build the lookup table for the column names
+    col_df = (
+        # select the columns in the `col_list`
+        df[col_list]
+
+        # drop duplicates, sort, reset the index, and rename the index
+        .drop_duplicates()
+        .sort_values(col_list)
+        .reset_index(drop=True)
+        .reset_index()
+        .rename(columns=dict(index=id_col_name))
+    )
+
+    # build the timstamp for when the data are pulled rounded to
+    # `nearest` minutes using `build_timestamp()`
+    col_df['timestamp'] = build_timestamp(nearest=nearest)
+
+    # reorder columns so that timestamp is first
     col_df = col_df[['timestamp', id_col_name] + col_list]
 
+    # return the dataframe
     return (col_df)
 
 
