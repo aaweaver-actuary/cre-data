@@ -518,22 +518,41 @@ def cinre_sap_contract(sap_conn: pyodbc.Connection, earliest_date: str = "2020-0
 
     # Parameters
         sap_conn: pyodbc.Connection
+            Connection to the SAP database.
+        earliest_date: str
+            Earliest inception date to include in the returned table.
+            Must be in ISO format (e.g. '2020-01-01').
+            Default is '2020-01-01' (this is about the earliest date that
+            the data quality is good enough to use).
+    
+    # Output
+        contract_sap: pd.DataFrame
+            `Contract` table from the SAP database.
 
+    # Example
+        >>> contract_sap = cinre_sap_contract(sap_conn)
+        >>> contract_sap.head()
+        #  Company Code Deal Number Contract Number  ... Cancel Date End of Acct Period
+        # 0         1000  1000000001      1000000001  ...  2020-12-31         2020-12-31
+        # 1         1000  1000000002      1000000002  ...  2020-12-31         2020-12-31
+        # 2         1000  1000000003      1000000003  ...  2020-12-31         2020-12-31
+        # 3         1000  1000000004      1000000004  ...  2020-12-31         2020-12-31
+        # 4         1000  1000000005      1000000005  ...  2020-12-31         2020-12-31
+        # [5 rows x 16 columns]
     """
 
+    # print status message so I know it's working
     print('reading Contract table from SAP DB')
 
-    # read in table
+    # read in table from the SAP database
     contract_sap = readtbl(['Treaty$', sap_conn])
 
-    # add timestamp
-    # contract_sap['timestamp'] = build_timestamp()
-
-    # inception dates 2020 & later
+    # filter inception date to be after `earliest_date`
     contract_sap = contract_sap.loc[contract_sap['Effective Date'] >=
-                                    datetime.datetime.fromisoformat('2020-01-01'), :].reset_index(drop=True)
+                                    datetime.datetime.fromisoformat(earliest_date), :].reset_index(drop=True)
 
-    # change column names
+    # change column names to be easier to work with (eg remove spaces) and make them lowercase, and add `_sap` to the end to compare 
+    # with different databases that in theory have the same values
     contract_sap_curcols = ['Company Code', 'Deal Number', 'Contract Number', 'CRM Submission ID', 'Treaty Text', 'Cedent', 'Cedent Name', 'Underwriter for Treaty', 'Nature of Treaty', 'Treaty Category', 'Accounting Freq# No#', 'Account Level', 'Cancel Date', 'End of Acctg Year', 'Spec# Retro Allowed', 'Specific Retro Treaty', 'Effective Date', 'Expiration Date', 'Contract Status', 'Renewal', 'Exposure Territory', 'Retro Treaty Number', 'Retro Section Number', 'Cession Percentage', 'Reported Data Placement %', 'CinciRe Share/participation', 'Section', 'Text for Section', 'Contract Type', 'Layer', 'UW Area', 'Business Type Number', 'Contract Trigger', 'Cancel Type', 'Days Runoff', 'XPL Limit', 'ECO Limit', 'Peril',
                             'COB(UOBG)', 'CoB (UOBG) %', 'Segment', 'Subsegment', 'Quota Share %', 'Maximum Liability', 'Retained Line', 'No# of Lines', 'Limit', 'Retention', 'Cat Occurrence Retention', 'Cat Occurrence Limit', 'Terror Occurrence Limit', 'AAD', 'AAL', 'Loss Corridor Floor', 'Loss Corridor Ceiling', 'ALAE Treatment', 'Protected Share', 'Subject Premium', 'Base Rate', 'Min Rate for swing', 'Max Rate for swing', 'Deposit Premium', 'Reinstatement Cover %', 'Reinstatem# Time %', 'Flat Commission%', 'Provisional Commission%', 'Overriding Commission%', 'Brokerage%', 'Provisional Loss Ratio', 'Dev Pattern', 'LR at Min Commission', 'LR at Max Commission', 'Commission at Min', 'Commission at Max', 'Profit Commission %', 'Profit Commission Expense']
     contract_sap_newcols = ['company_code', 'deal_numb', 'contract_numb', 'crm_id', 'treaty_text', 'cedent', 'cedent_name', 'uw_for_treaty', 'nature_of_treaty', 'treaty_category', 'acct_freq_numb', 'acct_level', 'cancel_date', 'end_of_acct_year', 'specific_numb_retro_allowed', 'specific_retro_treaty', 'eff_date', 'exp_date', 'contract_status', 'renewal', 'exposure_terr', 'retro_treaty_numb', 'retro_section_numb', 'cession_pct', 'reported_data_placement_pct', 'cre_share_participation', 'section', 'text_for_section', 'contract_type', 'layer', 'uw_area', 'business_type_numb', 'contract_trigger', 'cancel_type', 'days_runoff', 'xpl_limit', 'eco_limit',
@@ -541,15 +560,10 @@ def cinre_sap_contract(sap_conn: pyodbc.Connection, earliest_date: str = "2020-0
     contract_sap.rename(columns=dict(zip(contract_sap_curcols, [
                         c + '_sap' for c in contract_sap_newcols])), inplace=True)
 
-    # recode category columns
-    # for col in ['company_code_sap','deal_numb_sap','contract_numb_sap','crm_id_sap','treaty_text_sap','cedent_sap','cedent_name_sap','uw_for_treaty_sap','nature_of_treaty_sap','treaty_category_sap','acct_freq_numb_sap','acct_level_sap','cancel_date_sap','end_of_acct_year_sap','specific_numb_retro_allowed_sap','specific_retro_treaty_sap','contract_status_sap','renewal_sap','exposure_terr_sap','retro_treaty_numb_sap','retro_section_numb_sap','section_sap','text_for_section_sap','contract_type_sap','layer_sap','uw_area_sap','business_type_numb_sap','contract_trigger_sap','cancel_type_sap','days_runoff_sap','peril_sap','uobg_sap','segment_sap','subsegment_sap','alae_treatment_sap','dev_pattern_sap']:
-    # contract_sap[col] = contract_sap[col].astype('category')
-
     # drop these columns that are more "layer" than "contract"
     contract_sap = contract_sap.drop('limit_sap retention_sap'.split(), 1)
 
-    # drop these columns that are numbers that may not be correct
-    # eff_date_sap
+    # drop these columns that are use numbers that I have found may not be correct
     contract_sap = contract_sap.drop('uobg_sap uobg_pct_sap layer_sap section_sap text_for_section_sap base_rate_sap min_rate_for_swing_sap max_rate_for_swing_sap reinstatement_cover_pct_sap reinstatement_time_pct_sap flat_comm_pct_sap provisional_comm_pct_sap overriding_comm_pct_sap brokerage_pct_sap provisional_loss_ratio_sap lr_at_min_comm_sap lr_at_max_comm_sap comm_at_min_sap comm_at_max_sap profit_comm_pct_sap profit_comm_sap cat_occ_retention_sap cat_occ_limit_sap terror_occ_limit_sap aad_sap aal_sap subject_prem_sap cedent_sap cedent_name_sap contract_status_sap'.split(), 1)
     contract_sap = contract_sap.drop(
         'deposit_prem_sap cre_share_participation_sap max_liab_sap segment_sap subsegment_sap contract_numb_sap treaty_text_sap contract_type_sap deal_numb_sap qs_pct_sap retained_line_sap number_of_lines_sap uw_area_sap'.split(), 1)
@@ -562,27 +576,95 @@ def cinre_sap_contract(sap_conn: pyodbc.Connection, earliest_date: str = "2020-0
     return (contract_sap)
 
 
-def raw_contracts(lc_conn, ds_conn, sap_conn, air_conn):
+def raw_contracts(lc_conn : pyodbc.Connection,
+    ds_conn: pyodbc.Connection,
+    sap_conn: pyodbc.Connection,
+    air_conn: pyodbc.Connection,
+    delete_once_renamed: bool = False ) -> pd.DataFrame:
+    """
+    # Description
+    This function builds the raw contracts table from the individual contract tables.
+    Reads data from the `Contracts` table (or similar) from four specific databases:
+    - Loss Cost
+    - Deal Sheet
+    - SAP
+    - AIR
+    
+    # Parameters 
+    Note that all these connections are made in the above functions.  
 
-    # build individual tables
+    lc_conn: pyodbc.Connection
+        Connection to the loss cost database.
+    ds_conn: pyodbc.Connection
+        Connection to the deal sheet database.
+    sap_conn: pyodbc.Connection
+        Connection to the SAP database.
+    air_conn: pyodbc.Connection
+        Connection to the AIR database.
+    delete_once_renamed: bool
+        If True, the columns that are compared to get the final column names are deleted.
+        This is useful if you want to save memory, and should be implemented in the future.
+        For now, it is set to False, and the columns are not deleted, so that the user can
+        see the columns that were used to get the final column names and make sure they are
+        correct.
+
+    # Returns
+    contract: pd.DataFrame
+        The raw contracts table.
+
+    # Example
+    >>> contract = raw_contracts(lc_conn, ds_conn, sap_conn, air_conn)
+    >>> contract.head()
+    # crm_id_lc eff_date_lc crm_id_ds eff_date_ds crm_id_sap eff_date_sap crm_id_air eff_date_air
+    .............................................
+
+    """
+
+    # build individual contract tables
+    # tables are built from the individual contract tables
+    # from each individual database
     contract_lc = cinre_lc_contract(lc_conn)
     contract_ds = cinre_dealsheet_contract(ds_conn)
     contract_sap = cinre_sap_contract(sap_conn)
     contract_air = cinre_air_contract(air_conn)
 
-    # merge together
-    print('joining contract tables')
-    contract = (contract_lc
+    # merge the contract tables together
+    # this is done by joining on the `crm_id` and `eff_date` fields
+    # these have been the most reliable fields in my brief testing
+    print('joining contract tables from each database on crm_id and eff_date...')
+    contract = (
+                # loss cost database: crm_id_lc, eff_date_lc
+                contract_lc
+
+                # deal sheet database: crm_id_ds, eff_date_ds
                 .merge(contract_ds, how='outer', left_on='crm_id_lc eff_date_lc'.split(), right_on='crm_id_ds eff_date_ds'.split())
+
+                # sap database: crm_id_sap, eff_date_sap
                 .merge(contract_sap, how='outer', left_on='crm_id_ds eff_date_ds'.split(), right_on='crm_id_sap eff_date_sap'.split())
+
+                # air database: crm_id_air, eff_date_air
                 .merge(contract_air, how='outer', left_on='crm_id_ds eff_date_ds'.split(), right_on='crm_id_air eff_date_air'.split())
                 )
 
+    # update the user that the join is complete
     print('updating contract table columns')
-    # add timestamp
+    
+    # add timestamp column
     contract['timestamp'] = build_timestamp()
 
     # add columns for a join to contract table
+    # this is done using the `all4hierarchy` function, which is designed to
+    # take the values from the four databases and return the first non-null value
+    # in this order:
+    # 1. loss cost
+    # 2. deal sheet
+    # 3. air
+    # 4. sap
+    # this order is fairly arbitrary, but I have found that the loss cost database
+    # is the most reliable, so I have placed it first, followed by the deal sheet,
+    # air, and sap
+    # note also that the columns start as names with the database name, and are then
+    # renamed to the final column name
     contract['crm_gp_id'] = all4hierarchy(ds=contract.crm_gp_id_ds, lc=contract.crm_gp_id_lc, air=contract.crm_gp_id_air, sap=[
                                           0 for r in range(contract.shape[0])]).astype(int)
     contract['crm_id'] = all4hierarchy(ds=contract.crm_id_ds, lc=contract.crm_id_lc, air=contract.crm_id_air, sap=[
@@ -592,26 +674,50 @@ def raw_contracts(lc_conn, ds_conn, sap_conn, air_conn):
     contract['exp_date'] = all4hierarchy(ds=contract.exp_date_ds, lc=contract.exp_date_lc, air=contract.exp_date_air, sap=[
                                          datetime.datetime.fromisoformat('2201-12-31') for r in range(contract.shape[0])])
 
+    # convert dates to datetime
     for c in 'eff_date exp_date'.split():
         contract[c] = pd.to_datetime(contract[c])
 
-    # drop column parts
-    # colstodrop='crm_gp_id_lc crm_gp_id_ds crm_gp_id_air crm_id_lc crm_id_ds crm_id_air crm_id_sap eff_date_lc eff_date_ds eff_date_air eff_date_sap exp_date_lc exp_date_ds exp_date_air exp_date_sap'.split()
-    # contract.drop(colstodrop, 1, inplace=True)
+    # In this next portion, I am using the `all4hierarchy` function to
+    # return the first non-null value from the four databases in the above order,
+    # and then renaming the columns to the final column names
+    # If the `delete_once_renamed` parameter is set to True, then the columns
+    # that are used to get the final column names are deleted, to save memory
 
-    # client name
+    # build `client_name`
     contract['client_name'] = all4hierarchy(
         ds=contract.client_name_ds, lc=contract.client_name_air, air=contract.account_lc, sap=contract.reassured_ds)
 
-    # MRL
+    # delete all four input columns if `delete_once_renamed` is True
+    if delete_once_renamed:
+        contract = contract.drop(columns='client_name_ds client_name_air account_lc reassured_ds'.split())
+
+    # build `mrl` first by getting the `mrl` from the `crm_id` column
     contract['crm_id_mrl'] = contract.crm_id.apply(lambda x: x[0]).map(
         {'C': 'Casualty', 'P': 'Property', 'S': 'Specialty'})
+    
+    # build `line` - note that line_ds is repeated twice, because this column is not 
+    # available in the SAP database
     contract['line'] = all4hierarchy(
         ds=contract.line_ds, lc=contract.mrl_lc, air=contract.crm_id_mrl, sap=contract.line_ds)
+
+    # delete all four input columns if `delete_once_renamed` is True
+    if delete_once_renamed:
+        contract = contract.drop(columns='line_ds mrl_lc crm_id_mrl'.split())
 
     # contract name
     contract['contract_name'] = all4hierarchy(
         ds=contract.contract_name_ds, lc=contract.account_desc_lc, air=contract.contract_name_ds, sap=contract.contract_name_ds)
+
+    # delete all four input columns if `delete_once_renamed` is True
+    if delete_once_renamed:
+        contract = contract.drop(columns='contract_name_ds account_desc_lc'.split())
+
+    # some recoding on the contract name:
+    # 1. if the contract name is 0, then replace with 'temp'
+    # 2. if the contract name is blank, then replace with 'temp'
+    # 3. if the contract name is ' ', then replace with 'temp'
+    # the contracts whose names are set to 'temp' will be given a name later
     contract['contract_name'] = (contract['contract_name']
                                  .mask(contract['contract_name'].eq(0), other='temp')
                                  .mask(contract['contract_name'].eq(''), other='temp')
@@ -619,6 +725,10 @@ def raw_contracts(lc_conn, ds_conn, sap_conn, air_conn):
                                  )
 
     # program
+    # this next line is a bit complicated, but what it does is:
+    # 1. if the contract_type_ds is NOT 0, then replace with the program_lc
+    # 2. if the contract_type_ds is NOT '0', then replace with the program_lc
+
     contract['contract_type_ds'] = contract['contract_type_ds'].where(contract['contract_type_ds'].ne(
         0), other=contract.program_lc).where(contract['contract_type_ds'].ne('0'), other=contract.program_lc)
     contract['program'] = all4hierarchy(ds=contract.contract_type_ds.where(contract.contract_type_ds.ne(
@@ -628,28 +738,90 @@ def raw_contracts(lc_conn, ds_conn, sap_conn, air_conn):
 
     # WC Catastrophe Excess of Loss
     # 'Per Occurrence Cat XOL'
-
+    # This is to recode one specific program name
     contract['program'] = (contract.program
                            # missing WC Cat XOL is per occ cat xol
-                           .mask(np.logical_and(np.logical_or(contract.program.eq(0), contract.program.eq('')), contract.contract_name.eq('WC Catastrophe Excess of Loss')), other='Per Occurrence Cat XOL')
+                           .mask(
+                                # if program is 0 or blank and contract name is WC Cat XOL
+                                np.logical_and(
+                                    np.logical_or(
+                                        contract.program.eq(0), contract.program.eq('')
+                                    )
+                                    , contract.contract_name.eq('WC Catastrophe Excess of Loss')
+                                )
+                            # then program is Per Occ Cat XOL
+                            , other='Per Occurrence Cat XOL'
+                            )
                            )
 
-    # a few programs missing, recode them:
-    cond = [contract.contract_name.str.contains(
-        "Per Policy XOL"), contract.contract_name.str.contains("WC Catastrophe Excess of Loss")]
-    choices = ['Per Policy XOL', 'Per Occurrence Cat XOL']
-    contract['program'] = contract['program'].where(
-        contract['program'].notna(), other=np.select(cond, choices, ''))
+    # here are a few additional programs that need to be recoded:
+    # 1. if the program is 0, then replace with ''
+    # 2. if the program is blank, then replace with ''
+    # 3. if the program is ' ', then replace with ''
 
-    # trigger
-    contract['trigger_long'] = all4hierarchy(ds=contract.trigger_ds, lc=contract.treaty_basis_lc, air=contract.trigger_ds.mask(
-        contract.contract_name.eq('Freddie Mac'), other='Risks Attaching'), sap=contract.trigger_ds)
-    contract['trigger_long'] = contract['trigger_long'].where(
-        contract['trigger_long'].notna(), other=contract.treaty_basis_lc)
+    # use the np.select function to recode the program column
+    # this starts by defining conditions and choices
+    cond = [
+        # Condition 1: does the contract name contain 'Per Policy XOL' anywhere?
+        contract.contract_name.str.contains("Per Policy XOL")
+        
+        # Condition 2: does the contract name contain 'WC Catastrophe Excess of Loss' anywhere?
+        , contract.contract_name.str.contains("WC Catastrophe Excess of Loss")
+        ]
+
+    # if the program has either of these two substrings,
+    # then replace with the corresponding choice general options
+    choices = [
+        # Choice 1: if the contract name contains 'Per Policy XOL',
+        # then replace the entire program column with 'Per Policy XOL'
+        'Per Policy XOL'
+        
+        # Choice 2: if the contract name contains 'WC Catastrophe Excess of Loss',
+        # then replace the entire program column with 'Per Occurrence Cat XOL'
+        , 'Per Occurrence Cat XOL'
+        ]
+
+    # now use the np.select function to recode the program column, but 
+    # only if the program column is blank (this is why we did the recoding before)
+    contract['program'] = (
+        contract['program']
+        .where(
+            contract['program'].notna()
+            , other=np.select(cond, choices, '')
+        )
+    )
+
+    # trigger is one of three values: RA, LO, or LD, which stand for
+    # "Risks Attaching", "Losses Occurring", and "Losses Discovered"
+    # this section uses the all4hierarchy function to recode the trigger column
+    # so that it is consistent
+    contract['trigger_long'] = all4hierarchy(ds=contract.trigger_ds, lc=contract.treaty_basis_lc
+
+        # this line defines that the trigger equals "Risks Attaching"
+        # if the contract name is "Freddie Mac"
+        , air=contract.trigger_ds.mask(
+            contract.contract_name.eq('Freddie Mac'), other='Risks Attaching'
+            )
+
+            , sap=contract.trigger_ds)
+
+    # recode the trigger column so that NA values are replaced with the treaty basis
+    # from the loss cost DB
+    contract['trigger_long'] = (
+        contract['trigger_long']
+        .where(
+            contract['trigger_long'].notna()
+            , other=contract.treaty_basis_lc
+        )
+    )
+
+    # define a `trigger` column that is the same as the `trigger_long` column,
+    # but with the values recoded to RA, LO, or LD
     contract['trigger'] = contract['trigger_long'].map(
-        {'Risks Attaching': 'RA', 'Losses Occurring': 'LO', 'Losses Discovered': 'LD'})
+        {'Risks Attaching': 'RA', 'Losses Occurring': 'LO', 'Losses Discovered': 'LD'}
+    )
 
-    # treaty category
+    # treaty category 
     contract['treaty_category'] = contract['treaty_category_ds'].mask(
         contract['treaty_category_ds'].isna(), other='Missing')
 
@@ -658,25 +830,52 @@ def raw_contracts(lc_conn, ds_conn, sap_conn, air_conn):
         ds=contract.currency_ds, lc=contract.currency_lc, air=contract.currency_air, sap=contract.currency_ds)
 
     # create something if contract name is missing
-    temp_name = contract['line eff_date program'.split()].apply(
-        lambda x: '{} {} {}'.format(x[0], x[2], x[1].year), axis=1)
-    contract['contract_name'] = contract.contract_name.mask(contract.contract_name.eq(
-        'temp'), other=temp_name).mask(contract.contract_name.eq(' '), other=temp_name)
+    temp_name = (
+        # start with the line, eff_date, and program columns
+        contract['line program eff_date'.split()]
+        
+        # join them together with a space after converting the final column to
+        # the year instead of the full date
+        .apply(lambda x: '{} {} {}'.format(x[0], x[1], x[2].year), axis=1)
+    )
+
+    # replace missing contract names with the temp_name
+    contract['contract_name'] = (
+        contract.contract_name
+        
+        # use the `mask` function to replace contract names 'temp' with the
+        # actual value defined as `temp_name`
+        .mask(contract.contract_name.eq('temp'), other=temp_name)
+        
+        # use the `mask` function to replace contract names ' ' with the
+        # actual value defined as `temp_name`
+        .mask(contract.contract_name.eq(' '), other=temp_name)
+
+        # otherwise, just use the contract name
+    )
+
 
     # territory
     contract['territory'] = all4hierarchy(
         ds=contract.terr_ds, lc=contract.region_lc, air=contract.region_air, sap=contract.terr_ds)
+
+    # replace missing values with 'Missing' so that they can be grouped together
+    # or filtered out, etc
     contract['territory'] = contract['territory'].mask(
         contract['territory'].eq(0), other='Missing')
 
     # broker
     contract['broker'] = all4hierarchy(
         ds=contract.broker_ds, lc=contract.broker_air, air=contract.broker_ds, sap=contract.broker_ds)
+    
+    # replace missing values with 'Missing' so that they can be grouped together
+    # or filtered out, etc
     contract['broker'] = contract['broker'].mask(
         contract['broker'].eq(0), other='Missing')
 
     # last updated date
-    # replace missing values with 1/1/1900
+    # replace missing values with 1/1/1900, so that they can be grouped together
+    # or filtered out, etc
     contract['last_updated_lc'] = contract['last_updated_lc'].mask(
         contract['last_updated_lc'].isna(), other=datetime.datetime.fromisoformat('1990-01-01'))
     contract['last_updated_ds'] = contract['last_updated_ds'].mask(
@@ -684,14 +883,23 @@ def raw_contracts(lc_conn, ds_conn, sap_conn, air_conn):
     contract['last_updated_air'] = contract['last_updated_air'].mask(
         contract['last_updated_air'].isna(), other=datetime.datetime.fromisoformat('1990-01-01'))
 
-    # max of the 3 values
-    contract['last_updated'] = contract['last_updated_lc last_updated_ds last_updated_air'.split(
-    )].apply(lambda x: max(x[0], x[1], x[2]), axis=1)
+    # max of the 3 `last_updated` columns:
+    # should work like this, but faster:
+    # contract['last_updated'] = contract['last_updated_lc last_updated_ds last_updated_air'.split(
+    # )].apply(lambda x: max(x[0], x[1], x[2]), axis=1)
+
+    # first try to use the loss cost last updated date,
+    # then the DS last updated date, then the AIR last updated date
+    contract['last_updated'] = contract['last_updated_lc'].mask(
+        contract['last_updated_lc'] > contract['last_updated_ds'], other=contract['last_updated_ds'])
+    contract['last_updated'] = contract['last_updated'].mask(
+        contract['last_updated'] > contract['last_updated_air'], other=contract['last_updated_air'])
+
 
     # drop out all ceded_retro contracts
     contract = contract.copy().query('treaty_category_ds != "Ceded Retrocession"')
 
-    # return sorted contract table
+    # return sorted contract table with only the columns we want
     contract = contract[['timestamp',
                          'crm_gp_id', 'crm_id', 'eff_date', 'exp_date',
 
