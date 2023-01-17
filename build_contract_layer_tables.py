@@ -1601,33 +1601,90 @@ def raw_layers(
     return (layer)
 
 
-def read_sap_tbl(ds_conn):
+def read_sap_tbl(ds_conn : pyodbc.Connection) -> pd.DataFrame:
+    """
+    # Description
+        Read the SAP lookup table from the deal sheet database
+
+    # Parameters
+        ds_conn: pyodbc.Connection
+            Connection to the deal sheet database
+
+    # Returns
+        sap_tbl: pandas.DataFrame
+            SAP lookup table
+    """
     print('reading SAP lookup')
-    sap_tbl = readtbl(['CRMIDforSAP', ds_conn])
-    sap_tbl.rename(columns=dict(zip(sap_tbl.columns.tolist(
-    ), 'cre_id crm_id eff_date exp_date treaty_category sap_treaty sap_section line'.split())), inplace=True)
+    
+    # read the SAP lookup table
+    sap_tbl = readtbl('CRMIDforSAP', ds_conn)
+
+    # rename the columns
+    sap_tbl.rename(columns=dict(zip(
+        sap_tbl.columns.tolist(),
+        'cre_id crm_id eff_date exp_date treaty_category sap_treaty sap_section line'.split())),
+        inplace=True)
+
+    # convert the crm_id to an integer, by removing the leading character
+    # and converting to an integer
+    # this is how the crm_gp_id is calculated
     sap_tbl['crm_gp_id'] = sap_tbl['crm_id'].apply(lambda x: int(x[1:]))
+
+    # drop the crm_id column
     sap_tbl.drop('cre_id', 1, inplace=True)
 
+    # convert the dates to datetime
     for c in 'eff_date exp_date'.split():
         sap_tbl[c] = pd.to_datetime(sap_tbl[c])
 
+    # rename the columns to include the suffix
     sap_tbl.rename(columns=dict(zip(sap_tbl.columns.tolist(), [
                    c + '_crmidforsap' for c in sap_tbl.columns.tolist()])), inplace=True)
+
+    # return the SAP lookup table
     return (sap_tbl)
 
 
-def join_layer_contract1(lc_conn, ds_conn, sap_conn, air_conn):
+def join_layer_contract1(lc_conn : pyodbc.Connection, ds_conn : pyodbc.Connection, sap_conn : pyodbc.Connection, air_conn : pyodbc.Connection) -> pd.DataFrame:
+    """
+    # Description
+        Join the layer table to the contract table
+
+    # Parameters
+        lc_conn: pyodbc.Connection
+            Connection to the loss cost database
+        ds_conn: pyodbc.Connection
+            Connection to the deal sheet database
+        sap_conn: pyodbc.Connection
+            Connection to the SAP database
+        air_conn: pyodbc.Connection
+            Connection to the AIR database
+
+    # Returns
+        out: pandas.DataFrame
+            Layer table joined to the contract table
+    """
+    # read the contract & layer tables
     raw_contract = raw_contracts(lc_conn, ds_conn, sap_conn, air_conn)
     raw_layer = raw_layers(lc_conn, ds_conn, sap_conn, air_conn)
 
+    # join the contract table to the layer table
     print('joining the contract table to the layer table')
     out = raw_layer.merge(raw_contract, how='left',
                           on='crm_gp_id crm_id eff_date exp_date'.split())
 
-    # contract term
-    out['contract_term'] = out['eff_date exp_date'.split()].apply(lambda x: (
-        12*x[1].year + x[1].month) - (12*x[0].year + x[0].month) + 1, axis=1)
+    # calculate the contract term, which is the number of months between the
+    # effective date and the expiration date, plus 1
+    out['contract_term'] = (
+        out['eff_date exp_date'.split()]
+        .apply(
+            # (12 * exp_date.year + exp_date.month) - (12 * eff_date.year - eff_date.month) + 1
+            # this represents an integer number of months between the effective date
+            # and the expiration date, plus 1
+            lambda x: (12*x[1].year + x[1].month) - (12*x[0].year + x[0].month) + 1,
+            axis=1
+        )
+    )
 
     # use program to assign to reserving analysis line
     xol_program_list = ['Aggregate XOL', 'Per Claim XOL', 'Per Occurence XOL', 'Per Occurrence Cat XOL',
@@ -1642,13 +1699,18 @@ def join_layer_contract1(lc_conn, ds_conn, sap_conn, air_conn):
                             'Aggregate CAT XOL - Occurrence Exposed', 'Aggregate Cat XOL', 'Aggregate XOL (Occurrence Exposed)']
     surplus_share_program_list = ['Surplus Share']
 
+    # helper columns for the program assignment
     out['one'], out['zero'] = 1, 0
 
     # xol_ind
+    # 1 if the program is in the xol_program_list
+    # 0 otherwise
     out['xol_ind'] = out.one.where(
         out.program.isin(xol_program_list), other=out.zero)
 
     # qs_ind
+    # 1 if the program is in the qs_program_list
+    # 0 otherwise
     out['qs_ind'] = out.one.where(out.program.isin(
         qs_program_list), other=out.zero).mask(out.placement_layer.lt(1), other=1)
 
@@ -1681,47 +1743,124 @@ def join_layer_contract1(lc_conn, ds_conn, sap_conn, air_conn):
     out['clash_ind'] = out.one.where(np.logical_and(out.line.eq(
         'Casualty'), out.program.str.lower().eq('clash')), other=out.zero)
 
-    # assign reserving line
+    # assign reserving line using the helper columns and np.select
     cond = [
-        # casualty np
-        np.logical_and(out.line.eq('Casualty'), np.logical_and(out.xol_ind.eq(1), np.logical_and(
-            out.cat_ind.eq(0), np.logical_and(out.qs_ind.eq(0), out.trans_ind.eq(0))))),
+        # when all these conditions are true, the line is casualty XOL
+        # eg Casualty NP (non-proportional):
+        # 1. line is casualty
+        # 2. program is in the xol_program_list
+        # 3. this is not a cat program
+        # 4. this is not a qs program
+        # 5. this is not a transactional program
+        np.logical_and(
+            out.line.eq('Casualty'),        # line is casualty
+            np.logical_and(
+                out.xol_ind.eq(1),          # program is in the xol_program_list
+                np.logical_and(
+                    out.cat_ind.eq(0),      # this is not a cat program
+                    np.logical_and(
+                        out.qs_ind.eq(0),   # this is not a qs program
+                        out.trans_ind.eq(0) # this is not a transactional program
+                    )
+                )
+            )
+        ),
 
-        # casualty pr
-        np.logical_and(out.line.eq('Casualty'), np.logical_and(
-            out.qs_ind.eq(1), out.trans_ind.eq(0))),
+        # casualty pr (proportional) is when:
+        # 1. line is casualty
+        # 2. program is in the qs_program_list
+        # 3. this is not a transactional program
+        np.logical_and(
+            out.line.eq('Casualty'),        # line is casualty
+            np.logical_and(
+                out.qs_ind.eq(1),           # program is in the qs_program_list
+                out.trans_ind.eq(0)         # this is not a transactional program
+            )
+        ),
 
-        # ppr
-        np.logical_and(out.line.eq('Property'), out.ppr_ind.eq(1)),
+        # ppr (property per risk) is when:
+        # 1. line is property
+        # 2. program is in the ppr_program_list
+        np.logical_and(
+            out.line.eq('Property'),        # line is property
+            out.ppr_ind.eq(1)               # program is in the ppr_program_list
+        ),
 
-        # property cat
-        np.logical_and(out.line.eq('Property'), out.cat_ind.eq(1)),
+        # property cat is when:
+        # 1. line is property
+        # 2. program is in the cat_program_list
+        np.logical_and(
+            out.line.eq('Property'),        # line is property
+            out.cat_ind.eq(1)               # program is in the cat_program_list
+        ),
 
-        # cirt
-        np.logical_and(out.line.eq('Specialty'), out.contract_term.ge(90)),
+        # cirt is when:
+        # 1. line is specialty
+        # 2. contract term is greater than or equal to 90 months
+        np.logical_and(
+            out.line.eq('Specialty'),       # line is specialty
+            out.contract_term.ge(90)        # contract term is greater than or equal to 90 months
+        ),
 
-        # other specialty
-        np.logical_and(out.line.eq('Specialty'), out.contract_term.lt(90)),
+        # other specialty is when:
+        # 1. line is specialty
+        # 2. contract term is less than 90 months
+        np.logical_and(
+            out.line.eq('Specialty'),       # line is specialty
+            out.contract_term.lt(90)        # contract term is less than 90 months
+        ),
 
-        # transactional
-        np.logical_and(out.line.eq('Casualty'), np.logical_and(
-            out.trans_ind.eq(1), out.contract_name.notna())),
+        # transactional is when:
+        # 1. line is casualty
+        # 2. program is in the transactional_program_list
+        # 3. contract name is not null
+        np.logical_and(
+            out.line.eq('Casualty'),        # line is casualty
+            np.logical_and(
+                out.trans_ind.eq(1),        # program is in the transactional_program_list
+                out.contract_name.notna()   # contract name is not null
+            )
+        ),
 
-        # other property cat
-        np.logical_and(out.line.eq('Property'), np.logical_and(
-            out.ppr_ind.eq(0), out.cat_ind.eq(1))),
+        # other property cat is when:
+        # 1. line is property
+        # 2. program is not in the ppr_program_list
+        # 3. this is a cat program
+        np.logical_and(
+            out.line.eq('Property'),        # line is property
+            np.logical_and(
+                out.ppr_ind.eq(0),          # program is not in the ppr_program_list
+                out.cat_ind.eq(1)           # this is a cat program
+            )
+        ),
 
-        # other property non cat
-        np.logical_and(out.line.eq('Property'), np.logical_and(
-            out.ppr_ind.eq(0), out.cat_ind.eq(0))),
+        # other property non cat is when:
+        # 1. line is property
+        # 2. program is not in the ppr_program_list
+        # 3. this is not a cat program
+        np.logical_and(
+            out.line.eq('Property'),        # line is property
+            np.logical_and(
+                out.ppr_ind.eq(0),          # program is not in the ppr_program_list
+                out.cat_ind.eq(0)           # this is not a cat program
+            )
+        ),
 
-        # WC cat
-        np.logical_and(out.line.eq('Casualty'), out.cat_ind.eq(1)),
+        # WC cat is when:
+        # 1. line is casualty
+        # 2. program is in the cat_program_list
+        np.logical_and(
+            out.line.eq('Casualty'),    # line is casualty
+            out.cat_ind.eq(1)           # program is in the cat_program_list
+        ),
 
-        # clash
-        out.clash_ind.eq(1)
+        # clash is when:
+        # 1. clash ind is 1 (in the clash_program_list)
+        out.clash_ind.eq(1)             # clash ind is 1
     ]
 
+    # set up reserving line choices that are assigned based on the conditions above, 
+    # in the same order as the conditions above
     choices = [
         'casualty_np',
         'casualty_pr',
@@ -1736,34 +1875,65 @@ def join_layer_contract1(lc_conn, ds_conn, sap_conn, air_conn):
         'clash'
     ]
 
-    # set up reserving line field
+    # build reserving line column, using the conditions and choices above
+    # and allowing for the possibility that the program is not in any of the lists
+    # in which case the reserving line is 'other'
     out['reserving_line'] = np.select(cond, choices, 'other')
 
     # read sap table
     sap_tbl = read_sap_tbl(ds_conn)
 
     # join sap table
-    out = out.merge(sap_tbl.drop('treaty_category_crmidforsap crm_gp_id_crmidforsap'.split(), 1), how='left', left_on='crm_id eff_date exp_date layer_id line'.split(
-    ), right_on='crm_id_crmidforsap eff_date_crmidforsap exp_date_crmidforsap sap_section_crmidforsap line_crmidforsap'.split())
+    out = (
+        out.merge(
+            sap_tbl.drop('treaty_category_crmidforsap crm_gp_id_crmidforsap'.split(), 1),
+            how='left',
+            left_on='crm_id eff_date exp_date layer_id line'.split(),
 
-    # recode sap treaty
+            # this is a left join, so we need to specify the right_on columns
+            # these columns are the same as the left_on columns, but with the suffix '_crmidforsap'
+            right_on='crm_id_crmidforsap eff_date_crmidforsap exp_date_crmidforsap sap_section_crmidforsap line_crmidforsap'.split()
+        )
+    )
+
+    # recode sap treaty and sap section numbers
     out['sap_treaty'] = all4hierarchy(ds=out.sap_treaty_ds_layer, lc=out.sap_treaty_crmidforsap,
                                       air=out.sap_treaty_ds_layer, sap=out.sap_treaty_ds_layer)
     out['sap_section'] = all4hierarchy(
         ds=out.layer_id, lc=out.sap_section_crmidforsap, air=out.layer_id, sap=out.layer_id)
 
     # qs on deal ind
-    qs_df = out['crm_id eff_date qs_ind'.split()].groupby(
-        'crm_id eff_date'.split(), observed=False).sum().reset_index()
+    # indicator that tells you whether the deal has qs on it
+    qs_df = (
+        # start with the out table, but only keep the crm_id, eff_date, and qs_ind columns
+        out['crm_id eff_date qs_ind'.split()]
+        
+        # group by crm_id and eff_date (which is the treaty level) and sum qs_ind
+        .groupby('crm_id eff_date'.split(), observed=False)
+        .sum()
+        .reset_index()
+    )
+    
+    # helper columns
     qs_df['one'], qs_df['zero'] = 1, 0
-    qs_df['qs_on_deal_ind'] = qs_df.one.where(
-        qs_df.qs_ind.ge(1), other=qs_df.zero)
+
+    # qs on deal ind is 1 if qs_ind is greater than or equal to 1, eg 
+    # the number of qs programs on the deal is greater than or equal to 1
+    qs_df['qs_on_deal_ind'] = (
+        qs_df.one # return 1 when qs_ind is greater than or equal to 1
+        .where(
+            # if qs_ind is greater than or equal to 1
+            qs_df.qs_ind.ge(1),
+            
+            # otherwise return 0
+            other=qs_df.zero
+        )
+    )
 
     # join qs_on_deal_ind
     out = out.merge(qs_df.drop('one zero qs_ind'.split(), 1),
                     how='left', on='crm_id eff_date'.split())
 
-    # out.drop('one zero'.split(), 1, inplace=True)
     return (out)
 
 
