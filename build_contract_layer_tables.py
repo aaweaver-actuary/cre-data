@@ -997,7 +997,7 @@ def cinre_lc_layers(lc_conn : pyodbc.Connection, earliest_eff_date : datetime.da
     # read in table
     layer_lc = readtbl(['LayerTerms', lc_conn])
 
-    # need contract table for filtering effective dates
+    # need contract table for filtering out effective dates
     contract = cinre_lc_contract(lc_conn)
 
 
@@ -1021,26 +1021,55 @@ def cinre_lc_layers(lc_conn : pyodbc.Connection, earliest_eff_date : datetime.da
     layer_lc['layer_lc'] = layer_lc['layer_lc'].astype('float')
 
     # GET EFF DATE FOR JOIN
-    layer_lc = layer_lc.merge(contract['crm_gp_id_lc crm_id_lc eff_date_lc exp_date_lc'.split(
-    )], how='left', on='crm_gp_id_lc crm_id_lc'.split())
+    layer_lc = (
+        layer_lc
+        .merge(
+            contract['crm_gp_id_lc crm_id_lc eff_date_lc exp_date_lc'.split()],
+            how='left',
+            on='crm_gp_id_lc crm_id_lc'.split()
+        )
+    )
 
     # return table
     return (layer_lc)
 
 
-def cinre_ds_layers(ds_conn):
+def cinre_ds_layers(ds_conn : pyodbc.Connection, earliest_eff_date : str = '2020-01-01') -> pd.DataFrame:
+    """
+    # Description
+        Read in layer table from deal sheet DB
+
+    # Parameters
+    ds_conn: pyodbc.Connection
+        connection to deal sheet DB
+    earliest_eff_date: str
+        earliest effective date to include in layer table
+        must be in format 'YYYY-MM-DD'
+        default is '2020-01-01'
+
+    # Returns
+    layer_ds: pandas.DataFrame
+        layer table from deal sheet DB
+    """
+
     print('reading layer table from deal sheet DB')
-    # read in table
-    layer_ds = readtbl(['Layer', ds_conn])
+    
+    # read in layer table from deal sheet DB
+    layer_ds = readtbl(ds_conn, 'Layer')
 
     # get contract table as well with a few key columns
-    contract = cinre_dealsheet_contract(ds_conn)[
-        'crm_gp_id_ds crm_id_ds eff_date_ds exp_date_ds expense_ratio_ds tech_uw_ratio_ds ult_cre_prem_ds'.split()].drop_duplicates()
-    contract.rename(columns=dict(expense_ratio_ds='expense_ratio_ds_contract',
-                    tech_uw_ratio_ds='tech_uw_ratio_ds_contract', ult_cre_prem_ds='ult_cre_prem_ds_contract'), inplace=True)
+    contract = cinre_dealsheet_contract(ds_conn)['crm_gp_id_ds', 'crm_id_ds', 'eff_date_ds', 'exp_date_ds',
+                                                'expense_ratio_ds', 'tech_uw_ratio_ds', 'ult_cre_prem_ds'].drop_duplicates()
 
-    # add timestamp
-    # layer_ds['timestamp_ds'] = build_timestamp()
+    # rename columns to match layer_lc but include a suffix
+    contract.rename(
+        columns=dict(
+            expense_ratio_ds='expense_ratio_ds_contract',
+            tech_uw_ratio_ds='tech_uw_ratio_ds_contract',
+            ult_cre_prem_ds='ult_cre_prem_ds_contract'
+        ), 
+        inplace=True
+    )
 
     # recode datetime columns
     for c in 'Inception Expiration'.split():
@@ -1054,9 +1083,8 @@ def cinre_ds_layers(ds_conn):
     layer_ds.rename(columns=dict(
         zip(layer_ds_curcols, [c + '_ds' for c in layer_ds_newcols])), inplace=True)
 
-    # inception dates 2020 & later
-    layer_ds = layer_ds.loc[layer_ds['eff_date_ds'] >= datetime.datetime.fromisoformat(
-        '2020-01-01'), :].reset_index(drop=True)
+    # inception dates later than earliest_eff_date
+    layer_ds = layer_ds.loc[layer_ds['eff_date_ds'] >= datetime.datetime.fromisoformat(earliest_eff_date), :].reset_index(drop=True)
 
     # join in contract columns
     layer_ds = layer_ds.merge(
@@ -1070,8 +1098,28 @@ def cinre_ds_layers(ds_conn):
     return (layer_ds)
 
 
-def cinre_air_layers(air_conn):
+def cinre_air_layers(air_conn : pyodbc.Connection, layer_table_name : str, earliest_date : str = '2020-01-01') -> pd.DataFrame:
+    """
+    # Description
+        Read in layer table from AIR DB
+
+    # Parameters
+    air_conn: pyodbc.Connection
+        connection to AIR DB
+    layer_table_name: str
+        name of layer table in AIR DB
+    earliest_date: str
+        earliest effective date to include in layer table
+        must be in format 'YYYY-MM-DD'
+        default is '2020-01-01'
+
+    # Returns
+    layer_air: pandas.DataFrame
+        layer table from AIR DB
+    """
+    # print message
     print('reading layer table from AIR DB')
+
     # old/new column names
     old_layer_cols = ['CRMID', 'CinReID', 'Name', 'Program', 'Inception', 'Expiration', 'Status', 'Broker', 'Region', 'Currency', 'LayerType', 'Rol', 'OccLimit', 'OccRetention', 'Franchise', 'ReinstatementNumber', 'ReinstatementRate', 'ReinstatementStr',
                       'AggLimit', 'AggRetention', 'Participation', 'Components', 'SharesPriced', 'SharesAuthorized', 'SharesSigned', 'Brokerage', 'RpBrokerage', 'LayerId', 'RppRefRol', 'Comments', 'PricingRegistry', 'CinReGroupID', 'Lc_AppliesAgg', 'Lc_RatioToAgg']
@@ -1079,7 +1127,7 @@ def cinre_air_layers(air_conn):
                       'agg_limit', 'agg_retention', 'participation', 'components', 'shares_priced', 'shares_authorized', 'shares_signed', 'brokerage', 'rp_brokerage', 'layer_id', 'rpp_ref_rol', 'comments', 'pricing_registry', 'cre_gp_id', 'lc_applies_agg', 'lc_ratio_to_agg']
 
     # read table
-    raw_layer_air = readtbl(['PricingLayerTermsv8-vw', air_conn])
+    raw_layer_air = readtbl(air_conn, layer_table_name)
 
     # rename columns
     raw_layer_air.rename(columns=dict(
@@ -1091,7 +1139,7 @@ def cinre_air_layers(air_conn):
 
     # eff_date >= 1/1/2020
     raw_layer_air = raw_layer_air.loc[raw_layer_air.eff_date_air >=
-                                      datetime.datetime.fromisoformat('2020-01-01'), :]
+                                      datetime.datetime.fromisoformat(earliest_date), :]
 
     # ensure contracts in line with contracts_air table
     contract_air = cinre_air_contract(air_conn)
@@ -1106,18 +1154,65 @@ def cinre_air_layers(air_conn):
     return (layer_air)
 
 
-def raw_layers(lc_conn, ds_conn, sap_conn, air_conn):
+def raw_layers(
+    lc_conn : pyodbc.Connection,
+    ds_conn : pyodbc.Connection,
+    sap_conn : pyodbc.Connection,
+    air_conn : pyodbc.Connection,
+    layer_table_name : str,
+    earliest_eff_date : str = '2020-01-01'
+    ) -> pd.DataFrame:
+    """
+    # Description
+        Read in layer table from all 4 databases
+
+    # Parameters
+    lc_conn: pyodbc.Connection
+        connection to LC DB
+    ds_conn: pyodbc.Connection
+        connection to DS DB
+    sap_conn: pyodbc.Connection
+        connection to SAP DB
+    air_conn: pyodbc.Connection 
+        connection to AIR DB
+    layer_table_name: str
+        name of layer table in AIR DB
+    earliest_eff_date: str
+        earliest effective date to include in layer table
+        must be in format 'YYYY-MM-DD'
+        default is '2020-01-01'
+
+    # Returns
+    layer: pandas.DataFrame
+        layer table from all 4 databases
+    """
     # build indiviual tables
     layer_lc = cinre_lc_layers(lc_conn)
     layer_ds = cinre_ds_layers(ds_conn)
-    layer_air = cinre_air_layers(air_conn)
+    layer_air = cinre_air_layers(air_conn, layer_table_name, earliest_eff_date)
 
     print("joining layer tables")
     # merge together
-    layer = (layer_lc
-             .merge(layer_ds, how='outer', left_on='crm_gp_id_lc layer_lc eff_date_lc'.split(), right_on='crm_gp_id_ds layer_id_ds eff_date_ds'.split())
-             .merge(layer_air, how='outer', left_on='crm_gp_id_ds cinre_lc_layer_id_ds eff_date_ds'.split(), right_on='crm_gp_id_air layer_id_air eff_date_air'.split())
-             )
+    layer = (
+        # start with loss cost table
+        layer_lc
+
+        # merge in ds table
+        .merge(
+            layer_ds,
+            how='outer',
+            left_on='crm_gp_id_lc layer_lc eff_date_lc'.split(),
+            right_on='crm_gp_id_ds layer_id_ds eff_date_ds'.split()
+            )
+
+        # merge in air table
+        .merge(
+            layer_air,
+            how='outer',
+            left_on='crm_gp_id_ds cinre_lc_layer_id_ds eff_date_ds'.split(),
+            right_on='crm_gp_id_air layer_id_air eff_date_air'.split()
+            )
+        )
 
     print('updating layer table columns')
     # add timestamp
@@ -1425,34 +1520,81 @@ def raw_layers(lc_conn, ds_conn, sap_conn, air_conn):
                'lc_ratio_to_agg_air'
                ]
 
+    # get the layer data, ordered as abovev
     layer = layer[col_ord]
+
+    # rename the columns to include the layer suffix
     layer.rename(columns=dict(zip(layer.columns.tolist(), [
                  c + '_layer' for c in layer.columns.tolist()])), inplace=True)
+
+    # except for a few columns that are not layer specific, or that do not need the suffix
     layer.rename(columns=dict(zip('crm_gp_id_layer crm_id_layer eff_date_layer exp_date_layer layer_id_layer'.split(
     ), 'crm_gp_id crm_id eff_date exp_date layer_id'.split())), inplace=True)
 
     # add in the number of layers for each contract
     layer = layer.merge(
-        (layer['crm_gp_id crm_id eff_date exp_date layer_id'.split()]
-         .drop_duplicates()
-         .groupby('crm_gp_id crm_id eff_date exp_date'.split(), observed=False)
-         .count()
-         .reset_index()
-         .rename(columns=dict(layer_id='layer_count'))
-         ), how='left', on='crm_gp_id crm_id eff_date exp_date'.split()
+        # merge this calculation back in:
+        (
+            # count the number of layers for each contract
+            layer['crm_gp_id crm_id eff_date exp_date layer_id'.split()]
+
+            .drop_duplicates()
+            
+            # group by contract (key is crm_gp_id crm_id eff_date exp_date)
+            .groupby('crm_gp_id crm_id eff_date exp_date'.split(), observed=False)
+            
+            # count the number of unique layer ids
+            .count()
+
+            # reset the index
+            .reset_index()
+
+            # rename the layer_id column to layer_count
+            .rename(columns=dict(layer_id='layer_count'))
+
+         ),
+         
+         # merge on the key, which is crm_gp_id crm_id eff_date exp_date
+         how='left', on='crm_gp_id crm_id eff_date exp_date'.split()
     )
 
     # if layer name is missing, add it in
-    layer['layer_name_default'] = layer.layer_id.apply(
-        lambda x: 'Layer 1' if np.isnan(x) else 'Layer ' + str(int(x)))
-    layer['layer_name_missing'] = ""
-    layer['layer_name_exists'] = layer.layer_count.gt(1)
-    layer['layer_ds_name_exists'] = layer.layer_name_ds_layer.notna()
-    layer['layer_name'] = layer.layer_name_ds_layer.where(layer.layer_name_ds_layer.notna(
-    ), other=layer.layer_name_default.where(layer.layer_name_exists, other=layer.layer_name_missing))
-    # layer.drop('layer_name_default layer_name_missing layer_name_exists layer_ds_name_exists'.split(), 1, inplace=True)
+    layer['layer_name_default'] = (
+        layer.layer_id
 
-    # remove essent
+        # if layer id is missing, the assumption is that there is only one layer
+        # and so the layer name is layer 1. if layer id is not missing, we take the
+        # layer id and add layer to it to get the layer name
+        .apply(lambda x: 'Layer 1' if np.isnan(x) else 'Layer ' + str(int(x)))
+    )
+
+    # this is what we will use if the layer name is missing
+    layer['layer_name_missing'] = ""
+
+    # boolean to indicate if the layer name exists, which is true if there is more
+    # than one layer
+    layer['layer_name_exists'] = layer.layer_count.gt(1)
+
+    # also need to know if the layer name exists in the ds layer table
+    layer['layer_ds_name_exists'] = layer.layer_name_ds_layer.notna()
+
+    # if the layer name exists in the ds layer table, then we use that
+    layer['layer_name'] = (
+        layer.layer_name_ds_layer.where(
+            layer.layer_name_ds_layer.notna(),
+    
+            # otherwise, we use the default layer name that we calculated above
+            other=layer.layer_name_default.where(
+                layer.layer_name_exists,
+                
+                # if this default name does not exist, then we use the
+                # "missing" name
+                other=layer.layer_name_missing
+            )
+        )
+    )
+
+    # remove essent completely from the layer table
     layer = layer.query("layer_name_ds_layer!='Essent'")
 
     # return total layer table
