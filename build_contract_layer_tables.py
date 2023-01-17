@@ -1934,23 +1934,47 @@ def join_layer_contract1(lc_conn : pyodbc.Connection, ds_conn : pyodbc.Connectio
     out = out.merge(qs_df.drop('one zero qs_ind'.split(), 1),
                     how='left', on='crm_id eff_date'.split())
 
+    # return out
     return (out)
 
 
-def join_layer_contract(lc_conn, ds_conn, sap_conn, air_conn):
+def join_layer_contract(lc_conn : pyodbc.Connection,
+                        ds_conn : pyodbc.Connection,
+                        sap_conn : pyodbc.Connection,
+                        air_conn : pyodbc.Connection) -> pd.DataFrame:
+    """
+    # Description
+        Join layer contract table with ds table, sap table, and air table.
+
+    # Parameters
+        lc_conn : pyodbc.Connection
+            Connection to loss cost database.
+        ds_conn : pyodbc.Connection
+            Connection to deal sheet database.
+        sap_conn : pyodbc.Connection
+            Connection to sap database.
+        air_conn : pyodbc.Connection
+            Connection to air database.
+
+    # Returns
+        df : pd.DataFrame
+            Layer contract table with ds table, sap table, and air table joined.
+    """
+    # start with layer contract table
     df = join_layer_contract1(lc_conn, ds_conn, sap_conn, air_conn)
 
-    # treaty year
+    # calculate treaty year as the year of the effective date
     df['treaty_year'] = df.eff_date.dt.year
 
-    # descr type
+    # add a filter into broader categories
     cond = [
-        df.xol_ind.eq(1),
-        df.agg_xol_ind.eq(1),
-        df.surplus_share_ind.eq(1),
-        df.qs_ind.eq(1),
-        df.var_qs_ind.eq(1)
+        df.xol_ind.eq(1),               # XOL
+        df.agg_xol_ind.eq(1),           # AGG XOL
+        df.surplus_share_ind.eq(1),     # surplus share
+        df.qs_ind.eq(1),                # quota share
+        df.var_qs_ind.eq(1)             # variable quota share
     ]
+
     choices = [
         'XOL',
         'AGG XOL',
@@ -1958,29 +1982,46 @@ def join_layer_contract(lc_conn, ds_conn, sap_conn, air_conn):
         'Quota Share',
         'Variable QS'
     ]
+
+    # description type column is the mapping of
+    # the above conditions to the above choices
     df['descr_type'] = np.select(cond, choices, 'other')
 
     # qs on same deal?
-    cond, choices = [df.qs_on_deal_ind.eq(1), df.qs_on_deal_ind.eq(0)], [
-        'Yes', 'No']
+    cond = [df.qs_on_deal_ind.eq(1), df.qs_on_deal_ind.eq(0)]
+    choices = ['Yes', 'No']
     df['qs_on_deal'] = np.select(cond, choices)
 
-    # multi layer always = "No"??
+    # multi layer always = "No"??                       ##################################################################### what is this? why is it always no? ##############################
     df['multi_layer'] = 'No'
 
     # recode a few WC CAT treaties to the correct reserving line
     cond = [
-        np.logical_and(df.reserving_line.eq('casualty_pr'), np.logical_and(
-            df.line.eq('Casualty'), df.program.eq('Per Occurrence Cat XOL')))
+        # WC CAT is a casualty_pr line, but the 
+        # program is Per Occurrence Cat XOL
+        np.logical_and(
+            df.reserving_line.eq('casualty_pr'),            # reserving line is casualty_pr
+            np.logical_and(
+                df.line.eq('Casualty'),                     # line is casualty
+                df.program.eq('Per Occurrence Cat XOL')     # program is Per Occurrence Cat XOL
+            )
+        )
     ]
+
     choices = [
         'wc_cat'
     ]
+
+    # reserving line is wc_cat if the above condition is true
+    # otherwise, reserving line is the same as before
     df['reserving_line'] = np.select(cond, choices, df['reserving_line'])
 
     # recode missing crm_gp_id's
-    df['crm_gp_id'] = df['crm_gp_id'].where(df['crm_gp_id'].ne(
-        0), other=df.crm_id.str.lstrip(1).astype(float))
+    df['crm_gp_id'] = (
+        df['crm_gp_id']
+        .where(
+            df['crm_gp_id'].ne(0),
+            other=df.crm_id.str.lstrip(1).astype(float)))
     df['crm_gp_id'] = df['crm_gp_id'].where(
         df['crm_gp_id'].notna(), other=0).astype(int)
 
