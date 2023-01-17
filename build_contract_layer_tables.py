@@ -972,17 +972,34 @@ def raw_contracts(lc_conn : pyodbc.Connection,
 
     return (contract)
 
+    ### NOW, after going through that entire process to clean the contract table,
+    ### we can do almost the exact same thing to clean the layer terms table
+    ### of course, we will not be able to reuse almost any of the code, but
+    ### it's good to keep in mind that this is the same general process 
 
-def cinre_lc_layers(lc_conn):
+
+def cinre_lc_layers(lc_conn : pyodbc.Connection, earliest_eff_date : datetime.date = datetime.date.fromisoformat('2020-01-01')):
+    """
+    # Description:
+        Read in the layer terms table from the loss cost DB
+    # Parameters:
+        lc_conn: pyodbc.Connection object
+            connection to the loss cost DB
+        earliest_eff_date: datetime.date object
+            earliest effective date to include in the table
+            Default: 2020-01-01
+    # Returns:
+        layer_lc: pandas.DataFrame
+    """
+    # print 
     print('reading layer terms table from loss cost DB')
+
     # read in table
     layer_lc = readtbl(['LayerTerms', lc_conn])
 
     # need contract table for filtering effective dates
     contract = cinre_lc_contract(lc_conn)
 
-    # add timestamp
-    # layer_lc['timestamp_lc'] = build_timestamp()
 
     # change column names
     layer_lc_curcols = ['CrmGroupID', 'CrmID', 'Layer', 'SubjectPremium', 'RiskLimit', 'RiskRetention', 'OccLimit', 'ReinstStrg', 'Aad', 'AggLimit', 'LossCorrStart', 'LossCorrStop', 'Brokerage', 'RpBrokerage', 'Rate', 'SwingMinRate', 'SwingMaxRate', 'SwingLoad', 'UlaeRatio', 'ProfitComm', 'MaxPc', 'ReinsExpLoad', 'Comm', 'SsLrMin', 'SsSlide1', 'SsLrMid', 'SsSlide2', 'SsLrMax', 'ReinsPremium100', 'NonCatAvgLossAlae', 'MdlCatAvgLossAlae', 'MdlHuEqCatAvgLossAlae', 'MdlAOCatAvgLossAlae', 'NmdCatAvgLossAlae', 'RawNonCatCV', 'NonCatParmRisk', 'NonCatCV', 'RawNmdCatCV',
