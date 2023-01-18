@@ -107,11 +107,11 @@ def readtbl(table_name: str, conn: pyodbc.Connection) -> pd.DataFrame:
         dataframe containing the data from the table
 
     # Example:
-        # assume the table CINRE_LC.dbo.CINRE_LC exists in the database CINRE_LC
+        # assume the table CINRE_LC.dbo.Layer exists in the database CINRE_LC
         # and is 3 rows two columns with A, B, C, D, E, F as the data and the columns
         # are named col1 and col2
         conn = connect_to_dbs()['CINRE_LC']
-        readtbl('CINRE_LC.dbo.CINRE_LC', conn)
+        readtbl('CINRE_LC.dbo.Layer', conn)
         >  col1 col2
         0    A    B
         1    C    D
@@ -545,16 +545,30 @@ def cinre_sap_contract(sap_conn: pyodbc.Connection, earliest_date: str = "2020-0
     print('reading Contract table from SAP DB')
 
     # read in table from the SAP database
-    contract_sap = readtbl(['Treaty$', sap_conn])
+    contract_sap = readtbl('Treaty$', sap_conn)
+
+    # recode dates using the `pd.to_datetime` function
+    contract_sap[['Effective Date', 'Cancel Date', 'End of Acct Period']] = [
+        pd.to_datetime(contract_sap[c]) for c in ['Effective Date', 'Cancel Date', 'End of Acct Period']]
+
 
     # filter inception date to be after `earliest_date`
     contract_sap = contract_sap.loc[contract_sap['Effective Date'] >=
                                     datetime.datetime.fromisoformat(earliest_date), :].reset_index(drop=True)
 
-    # change column names to be easier to work with (eg remove spaces) and make them lowercase, and add `_sap` to the end to compare 
-    # with different databases that in theory have the same values
-    contract_sap_curcols = ['Company Code', 'Deal Number', 'Contract Number', 'CRM Submission ID', 'Treaty Text', 'Cedent', 'Cedent Name', 'Underwriter for Treaty', 'Nature of Treaty', 'Treaty Category', 'Accounting Freq# No#', 'Account Level', 'Cancel Date', 'End of Acctg Year', 'Spec# Retro Allowed', 'Specific Retro Treaty', 'Effective Date', 'Expiration Date', 'Contract Status', 'Renewal', 'Exposure Territory', 'Retro Treaty Number', 'Retro Section Number', 'Cession Percentage', 'Reported Data Placement %', 'CinciRe Share/participation', 'Section', 'Text for Section', 'Contract Type', 'Layer', 'UW Area', 'Business Type Number', 'Contract Trigger', 'Cancel Type', 'Days Runoff', 'XPL Limit', 'ECO Limit', 'Peril',
-                            'COB(UOBG)', 'CoB (UOBG) %', 'Segment', 'Subsegment', 'Quota Share %', 'Maximum Liability', 'Retained Line', 'No# of Lines', 'Limit', 'Retention', 'Cat Occurrence Retention', 'Cat Occurrence Limit', 'Terror Occurrence Limit', 'AAD', 'AAL', 'Loss Corridor Floor', 'Loss Corridor Ceiling', 'ALAE Treatment', 'Protected Share', 'Subject Premium', 'Base Rate', 'Min Rate for swing', 'Max Rate for swing', 'Deposit Premium', 'Reinstatement Cover %', 'Reinstatem# Time %', 'Flat Commission%', 'Provisional Commission%', 'Overriding Commission%', 'Brokerage%', 'Provisional Loss Ratio', 'Dev Pattern', 'LR at Min Commission', 'LR at Max Commission', 'Commission at Min', 'Commission at Max', 'Profit Commission %', 'Profit Commission Expense']
+    # change column names to be easier to work with (eg remove spaces) and make them lowercase, and add `_sap`
+    # to the end to compare with different databases that in theory have the same values
+    contract_sap_curcols = ['Company Code', 'Deal Number', 'Contract Number', 'CRM Submission ID', 'Treaty Text', 'Cedent',
+                            'Cedent Name', 'Underwriter for Treaty', 'Nature of Treaty', 'Treaty Category', 'Accounting Freq# No#',
+                            'Account Level', 'Cancel Date', 'End of Acctg Year', 'Spec# Retro Allowed', 'Specific Retro Treaty',
+                            'Effective Date', 'Expiration Date', 'Contract Status', 'Renewal', 'Exposure Territory',
+                            'Retro Treaty Number', 'Retro Section Number', 'Cession Percentage', 'Reported Data Placement %',
+                            'CinciRe Share/participation', 'Section', 'Text for Section', 'Contract Type', 'Layer', 'UW Area',
+                            'Business Type Number', 'Contract Trigger', 'Cancel Type', 'Days Runoff', 'XPL Limit', 'ECO Limit',
+                            'Peril','COB(UOBG)', 'CoB (UOBG) %', 'Segment', 'Subsegment', 'Quota Share %', 'Maximum Liability',
+                            'Retained Line', 'No# of Lines', 'Limit', 'Retention', 'Cat Occurrence Retention', 'Cat Occurrence Limit',
+                            'Terror Occurrence Limit', 'AAD', 'AAL', 'Loss Corridor Floor', 'Loss Corridor Ceiling', 'ALAE Treatment',
+                            'Protected Share', 'Subject Premium', 'Base Rate', 'Min Rate for swing', 'Max Rate for swing', 'Deposit Premium', 'Reinstatement Cover %', 'Reinstatem# Time %', 'Flat Commission%', 'Provisional Commission%', 'Overriding Commission%', 'Brokerage%', 'Provisional Loss Ratio', 'Dev Pattern', 'LR at Min Commission', 'LR at Max Commission', 'Commission at Min', 'Commission at Max', 'Profit Commission %', 'Profit Commission Expense']
     contract_sap_newcols = ['company_code', 'deal_numb', 'contract_numb', 'crm_id', 'treaty_text', 'cedent', 'cedent_name', 'uw_for_treaty', 'nature_of_treaty', 'treaty_category', 'acct_freq_numb', 'acct_level', 'cancel_date', 'end_of_acct_year', 'specific_numb_retro_allowed', 'specific_retro_treaty', 'eff_date', 'exp_date', 'contract_status', 'renewal', 'exposure_terr', 'retro_treaty_numb', 'retro_section_numb', 'cession_pct', 'reported_data_placement_pct', 'cre_share_participation', 'section', 'text_for_section', 'contract_type', 'layer', 'uw_area', 'business_type_numb', 'contract_trigger', 'cancel_type', 'days_runoff', 'xpl_limit', 'eco_limit',
                             'peril', 'uobg', 'uobg_pct', 'segment', 'subsegment', 'qs_pct', 'max_liab', 'retained_line', 'number_of_lines', 'limit', 'retention', 'cat_occ_retention', 'cat_occ_limit', 'terror_occ_limit', 'aad', 'aal', 'loss_corridor_floor', 'loss_corridor_ceiling', 'alae_treatment', 'protected_share', 'subject_prem', 'base_rate', 'min_rate_for_swing', 'max_rate_for_swing', 'deposit_prem', 'reinstatement_cover_pct', 'reinstatement_time_pct', 'flat_comm_pct', 'provisional_comm_pct', 'overriding_comm_pct', 'brokerage_pct', 'provisional_loss_ratio', 'dev_pattern', 'lr_at_min_comm', 'lr_at_max_comm', 'comm_at_min', 'comm_at_max', 'profit_comm_pct', 'profit_comm']
     contract_sap.rename(columns=dict(zip(contract_sap_curcols, [
@@ -752,7 +766,7 @@ def raw_contracts(lc_conn : pyodbc.Connection,
                             # then program is Per Occ Cat XOL
                             , other='Per Occurrence Cat XOL'
                             )
-                           )
+                        )
 
     # here are a few additional programs that need to be recoded:
     # 1. if the program is 0, then replace with ''
@@ -967,7 +981,9 @@ def raw_contracts(lc_conn : pyodbc.Connection,
                          # 'company_id_ds','annual_values_ds','company_code_sap','end_of_acct_year_sap','specific_numb_retro_allowed_sap',
                          'executive_summary_air'
                          ]]
-
+    ################################################################################################################################################################ MAYBE CHECK THIS
+    ################################################################################################################################################################ MAYBE CHECK THIS
+    ################################################################################################################################################################ MAYBE CHECK THIS
     contract.query('crm_id != "M0"', inplace=True)
 
     return (contract)
@@ -995,7 +1011,7 @@ def cinre_lc_layers(lc_conn : pyodbc.Connection, earliest_eff_date : datetime.da
     print('reading layer terms table from loss cost DB')
 
     # read in table
-    layer_lc = readtbl(['LayerTerms', lc_conn])
+    layer_lc = readtbl('LayerTerms', lc_conn)
 
     # need contract table for filtering out effective dates
     contract = cinre_lc_contract(lc_conn)
@@ -1537,7 +1553,6 @@ def raw_layers(
         (
             # count the number of layers for each contract
             layer['crm_gp_id crm_id eff_date exp_date layer_id'.split()]
-
             .drop_duplicates()
             
             # group by contract (key is crm_gp_id crm_id eff_date exp_date)
