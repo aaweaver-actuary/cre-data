@@ -47,7 +47,7 @@ def constr(
             .format(driver_name, server_name, database_name, trusted_connection))
 
 
-def connect_to_dbs(*args: str) -> dict(str, pyodbc.Connection):
+def connect_to_dbs(*args: str) -> dict():
     """
     # Description:
         Function that takes an arbitrary number of database names and returns
@@ -88,7 +88,11 @@ def connect_to_dbs(*args: str) -> dict(str, pyodbc.Connection):
         args = db_list
 
     # loop through the args and build the dictionary
-    return {x: pyodbc.connect(constr(x)) for x in args}
+    out = {}
+    for x in args:
+        out[x] = pyodbc.connect(constr(x))
+        
+    return out
 
 
 def readtbl(table_name: str, conn: pyodbc.Connection) -> pd.DataFrame:
