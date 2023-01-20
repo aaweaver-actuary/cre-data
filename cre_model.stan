@@ -1,14 +1,6 @@
-// not including any user-defined functions in this file
-// they need to be imported from the "cre_model_functions.stan" file
-// which is included in the same folder as this file
-
-// this is the model for the cumulative paid loss
-// the model is a hierarchical model with an exponentially-modified
-// normal distribution for the incremental loss per exposure
-
-// import the user-defined functions:
 functions {
    #include "cre_model_functions.stan"
+   #include "loss_functions.stan"
 }
 data {
    // number of data points
@@ -91,6 +83,13 @@ transformed parameters {
    log_param_var_cov_matrix[2, 1] = rho * log_param_sigmas[1] * log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
 
    // loss measures
+
+   // MSE of the cumulative paid loss (uses modelled_cumulative_loss function)
+   real mse_cum_paid_loss = mean((cumulative_paid_loss -
+   modeled_cumulative_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure)) ^ 2);
+   
+   real mae_cum_paid_loss = fabs(cumulative_paid_loss -
+   modeled_cumulative_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure));
 
    
    // ==============================================================================
