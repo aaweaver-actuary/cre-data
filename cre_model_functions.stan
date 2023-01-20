@@ -495,27 +495,31 @@ functions {
         * @title Cumulative loss
         * @description Calculate the cumulative loss for each treaty. The cumulative loss is calculated
         * by multiplying the incremental loss per exposure by the exposure and then summing the incremental
-        * losses.
+        * losses by treaty.
         * @param n The number of data points.
+        * @param treaty_id A vector of length `n` with treaty IDs.
         * @param incremental_loss_per_exposure A vector of length `n` with incremental losses per exposure.
         * @param exposure A vector of length `n` with exposures by treaty.
         * @return A vector of length `n` of cumulative losses by treaty.
         * @examples
-        * > modeled_cumulative_loss(5, c(1, 1, 1, 1, 1), c(1, 1, 1, 1, 1))
-        * [1] 1 2 3 4 5
+        * > modeled_cumulative_loss(5, c(1, 1, 1, 2, 2), c(1, 1, 1, 1, 1), c(1, 2, 3, 4, 5))
+        * [1] 1 3 6 4 9
         */
-    vector modeled_cumulative_loss(int n, vector incremental_loss_per_exposure, vector exposure) {
-      // initialize a vector of length n to hold the cumulative loss
-      vector[n] cumulative_loss;
-
-      // calculate the incremental loss by multiplying the incremental loss per exposure by the exposure
-      vector[n] incremental_loss = incremental_loss_per_exposure .* exposure;
-
-      // calculate the cumulative loss by passing the incremental loss to the inc_to_cum function defined above
-      cumulative_loss = inc_to_cum(n, incremental_loss);
-
-      // return the cumulative loss
-      return cumulative_loss;
+    vector modeled_cumulative_loss(int n, vector treaty_id, vector incremental_loss_per_exposure, vector exposure) {
+        // initialize a vector of length n to hold the cumulative loss
+        vector[n] cumulative_loss;
+    
+        // initialize a vector of length n to hold the incremental loss
+        vector[n] incremental_loss;
+    
+        // calculate incremental loss by multiplying incremental loss per exposure by exposure
+        incremental_loss = incremental_loss_per_exposure * exposure;
+    
+        // calculate cumulative loss by passing incremental loss to the inc_to_cum function defined above
+        cumulative_loss = inc_to_cum(n, treaty_id, incremental_loss);
+    
+        // return the cumulative loss
+        return cumulative_loss;
     }
 
 }
