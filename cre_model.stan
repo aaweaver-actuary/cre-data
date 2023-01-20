@@ -83,13 +83,9 @@ transformed parameters {
    log_param_var_cov_matrix[2, 1] = rho * log_param_sigmas[1] * log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
 
    // loss measures
-
-   // MSE of the cumulative paid loss (uses modelled_cumulative_loss function)
-   real mse_cum_paid_loss = mean((cumulative_paid_loss -
-   modeled_cumulative_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure)) ^ 2);
-   
-   real mae_cum_paid_loss = fabs(cumulative_paid_loss -
-   modeled_cumulative_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure));
+   real mean_square_error_cum_paid_loss = mean_square_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure);
+   real mean_absolute_error_cum_paid_loss = mean_absolute_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure);
+   real mean_asymmetric_error_cum_paid_loss = mean_asymmetric_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure);
 
    
    // ==============================================================================
@@ -139,4 +135,18 @@ model{
       total_sigma,                               
       loss_skew
       );
+}
+// to optimize the model in stan, using stan's built-in optimization algorithm
+// we want to optimize the mean asymmetric error for the cumulative paid loss
+
+// this is the target function
+
+generated quantities {
+   // cumulative loss amounts
+   vector[N] modeled_cumulative_paid_loss = modeled_cumulative_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure)
+   
+   // loss measures
+   real mean_square_error_cum_paid_loss = mean_square_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure);
+   real mean_absolute_error_cum_paid_loss = mean_absolute_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure);
+   real mean_asymmetric_error_cum_paid_loss = mean_asymmetric_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure);
 }
