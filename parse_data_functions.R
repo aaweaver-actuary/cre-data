@@ -89,9 +89,9 @@ read_data <- function(file_path, sheet_name) {
 #' 4 A     1             1      1 Deal 1   2020-01-01      2020    1000  2020   4       400
 #' 5 A     1             1      1 Deal 1   2020-01-01      2020    1000  2020   5       500
 #' # ... with 1 more variable: dev_prd <dbl>    
-#' 
-#'  
-#' 
+#' @importFrom dplyr select, rename, mutate_at, vars, starts_with
+#' @importFrom lubridate ymd
+#' @importFrom data.table as.data.table
 clean_data <- function(datatable, date_delim="."){
     
     datatable <- datatable %>% 
@@ -159,6 +159,58 @@ clean_data <- function(datatable, date_delim="."){
 #    // (in that order) for the cumulative paid loss
 #    vector[3] prior_params;
 # }
+#' @title Prepares data for `cre_model.stan`
+#' 
+#' @description This function takes in a data.table and returns a list of data elements needed for `cre_model.stan`
+#' 
+#' @param datatable a data.table
+#' @param prior_params a vector of prior estimates of the warp, theta, and sigma parameters
+#' (in that order) for the cumulative paid loss
+#' 
+#' @return a list of data elements needed for `cre_model.stan`
+#' 
+#' @examples
+#' # This will return a list of data elements needed for `cre_model.stan`
+#' > data <- data.frame(LOB = "A", `For modeling` = 1, `CinFin #` = 1, `SAP #` = 1, `Deal Name` = "Deal 1"
+#' , `Eff. Date` = "2020-01-01", `Treaty Year` = 2020, Premium = 1000, `20.1.1` = 100, `20.1.2` = 200
+#' , `20.1.3` = 300, `20.1.4` = 400, `20.1.5` = 500)
+#' > datatable <- as.data.table(data)
+#' > datatable <- clean_data(datatable)
+#' > datatable %>% prep_data()
+#' $N
+#' [1] 5
+#' 
+#' $N_treaties
+#' [1] 1
+#' 
+#' $N_treaty_periods
+#' [1] 1
+#' 
+#' $N_development_periods
+#' [1] 5
+#' 
+#' $treaty_period
+#' [1] 1 1 1 1 1
+#' 
+#' $development_period
+#' [1] 1 2 3 4 5
+#' 
+#' $exposure
+#' [1] 1000 1000 1000 1000 1000
+#' 
+#' $treaty_id
+#' [1] 1 1 1 1 1
+#' 
+#' $cumulative_paid_loss
+#' [1] 100 300 600 1000 1500
+#' 
+#' $prior_params
+#' [1] 1 1 1
+#' 
+#' @export
+#' @importFrom rstan rstan_options
+#' @importFrom rstan rstan_model
+#' @importFrom rstan rstan
 prep_data <- function(datatable, prior_params=c(1,1,1)){
     # create a list of data elements needed for `cre_model.stan`
     data_list <- list(
