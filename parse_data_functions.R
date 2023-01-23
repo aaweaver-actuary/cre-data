@@ -32,6 +32,83 @@ library(lubridate)
 library(data.table)
 library(dplyr)
 
+# function that takes a file path, sheet name, and integer number of rows to skip
+# and returns the headers for the data table in that sheet
+# the headers are distributed between rows 1-`skip_rows`, so we read in only those rows
+# and then combine them into one row to create the headers for ``data``
+get_headers <- function(file_path, sheet_name='data', skip_rows=4) {
+  
+  # read in the data
+  data_headers <- read_excel(file_path, sheet = sheet_name, range = paste0("A1:XFD", skip_rows)) %>% 
+    # convert to a data frame
+    as.data.frame() %>% 
+
+    # get the rowSums of the data, which will be 0 for empty cells
+    rowSums() %>% 
+
+    # convert to a data frame
+    as.data.frame() %>% 
+
+    # transpose the data
+    t() %>% 
+
+    # convert to a data frame
+    as.data.frame() %>% 
+
+    # rename columns with gsub, which replaces all spaces with underscores
+    rename_all(~gsub(" ", "_", .)) %>% 
+
+    # now replace all other special characters with underscores
+    # replace all periods with underscores
+    rename_all(~gsub("\\.", "_", .)) %>%
+
+    # replace all parentheses with blank spaces
+    rename_all(~gsub("\\(", "", .)) %>% 
+    rename_all(~gsub("\\)", "", .)) %>% 
+
+    # replace all slashes with blank spaces
+    rename_all(~gsub("\\/", "", .)) %>% 
+
+    # replace all arithmetic symbols with blank spaces
+    rename_all(~gsub("\\-", "", .)) %>% 
+    rename_all(~gsub("\\+", "", .)) %>% 
+    rename_all(~gsub("\\*", "", .)) %>% 
+
+    # replace all other special characters with blank spaces
+    rename_all(~gsub("\\?", "", .)) %>% 
+    rename_all(~gsub("\\:", "", .)) %>% 
+    rename_all(~gsub("\\;", "", .)) %>% 
+    rename_all(~gsub("\\=", "", .)) %>% 
+    rename_all(~gsub("\\&", "", .)) %>% 
+    rename_all(~gsub("\\$", "", .)) %>% 
+    rename_all(~gsub("\\#", "", .)) %>% 
+    rename_all(~gsub("\\@", "", .)) %>% 
+    rename_all(~gsub("\\!", "", .)) %>% 
+    rename_all(~gsub("\\%", "", .)) %>% 
+    rename_all(~gsub("\\^", "", .)) %>% 
+    rename_all(~gsub("\\|", "", .)) %>% 
+    rename_all(~gsub("\\~", "", .)) %>% 
+    rename_all(~gsub("\\`", "", .)) %>% 
+    rename_all(~gsub("\\[", "", .)) %>% 
+    rename_all(~gsub("\\]", "", .)) %>% 
+    rename_all(~gsub("\\{", "", .)) %>% 
+    rename_all(~gsub("\\}", "", .)) %>% 
+    rename_all(~gsub("\\<", "", .)) %>% 
+    rename_all(~gsub("\\>", "", .)) %>% 
+    rename_all(~gsub("\\'", "", .)) %>% 
+    rename_all(~gsub("\\\"", "", .)) %>% 
+    
+    # replace all backslashes with blank spaces
+    rename_all(~gsub("\\\\", "", .))
+
+    # convert to a vector so we can use these as the column names
+    data_headers <- as.vector(data_headers)
+
+    # return the data headers
+    return(data_headers)  
+
+
+
 # function that reads in data from an excel workbook and returns a data.table
 # add in extremely detailed comments in roxygen2 format:
 
@@ -46,15 +123,32 @@ library(dplyr)
 #' @importFrom readxl read_excel
 #' @importFrom data.table as.data.table
 #' @importFrom dplyr select, rename, mutate_at, vars, starts_with
-read_data <- function(file_path, sheet_name) {
-  # read in data
-  data <- read_excel(file_path, sheet = sheet_name)
+read_data <- function(file_path, sheet_name='data', skip_rows=4) {
+    # read in data, skipping the first 4 rows
+    data <- read_excel(file_path, sheet = sheet_name, skip = skip_rows)
+
+    # headers are distributed between rows 2 and 4
+    # read in only these rows, and then combine them into one row
+    # uses the function get_headers to get these column headers
+    data_headers <- get_headers(file_path, sheet_name, skip_rows)
   
-  # convert to data.table
-  data <- as.data.table(data)
-  
-  # return data
-  return(data)
+    # set the column names to the data headers
+    colnames(data) <- data_headers
+
+    # rename columns
+        rename(
+            lob = LOB, model_gp = `For modeling`, cinfin_id = `CinFin #`
+            , sap_id = `SAP #`, deal_name = `Deal Name`, eff_date = `Eff. Date`
+            , treaty_year = `Treaty Year`, premium = Premium) %>%
+    
+    # convert to data.table
+        as.data.table() %>%
+
+    # remove completely blank columns
+        select(-starts_with("Unnamed")) %>%
+    
+    # return data
+    return(data)
 }
 
 # function that implements the step-by-step process for cleaning the data
