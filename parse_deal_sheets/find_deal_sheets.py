@@ -6,12 +6,10 @@ import os
 from datetime import datetime, timedelta
 
 import sys
+
+# add the location of these scripts to the path so they can be imported
 sys.path.append(r'O:\PARM\Corporate Actuarial\Reserving\Scripts\python')
 sys.path.append('./')
-
-# from importlib import reload
-# import reserving.parse_data.cre_deal_sheets.parse_casualty_pr_deal_sheets as cas_pr
-# cas_pr = reload(cas_pr)
 
 import user_inputs as i
 folder = i.get_folder()
