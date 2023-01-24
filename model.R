@@ -141,6 +141,10 @@ model_data <- df %>%
   # and also for reported loss
   mutate(inc_reported_loss=reported_loss - lag(reported_loss)) %>%
 
+  # if either of the two have NA values, replace with the cumulative amount
+  mutate(inc_paid_loss=ifelse(is.na(inc_paid_loss), paid_loss, inc_paid_loss)) %>%
+  mutate(inc_reported_loss=ifelse(is.na(inc_reported_loss), reported_loss, inc_reported_loss)) %>%
+
   # ungroup
   ungroup()
 
