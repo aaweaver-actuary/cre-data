@@ -130,7 +130,20 @@ model_data <- df %>%
   
   # if you are rank 1, prior is 0, otherwise, prior is the dev month corresponding to the rank - 1 value
   mutate(prior_dev_month_yr=ifelse(r_yr==1, 0, lag(dev_month_yr))) %>%
-  mutate(prior_dev_month_qtr=ifelse(r_yr==1, 0, lag(dev_month_qtr)))
+  mutate(prior_dev_month_qtr=ifelse(r_yr==1, 0, lag(dev_month_qtr))) %>%
+
+  # ungroup
+  ungroup() %>%
+
+  # create incremental paid loss column (paid loss - prior paid loss for the same treaty)
+  group_by(treaty_id) %>%
+  mutate(inc_paid_loss=paid_loss - lag(paid_loss)) %>%
+  # and also for reported loss
+  mutate(inc_reported_loss=reported_loss - lag(reported_loss)) %>%
+
+  # ungroup
+  ungroup()
+
 
 model_data %>% head
 
@@ -153,3 +166,6 @@ stan_data <- list(
   , prior_params=c()
   
 )
+
+# read in file from: O:\PARM\Corporate Actuarial\Reserving\Scripts\stan\cre_model\cre_model.stan
+cre_model <- stan_model(file="cre_model.stan")
