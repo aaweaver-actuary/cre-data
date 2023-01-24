@@ -144,6 +144,10 @@ model_data <- df %>%
   # ungroup
   ungroup()
 
+# export model_data and treaty_id_lookup to different tabs in an excel file
+model_data %>% write_excel("model_data.xlsx", sheet="model_data")
+treaty_id_lookup %>% write_excel("model_data.xlsx", sheet="treaty_id_lookup")
+
 
 model_data %>% head
 
