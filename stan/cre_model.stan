@@ -45,7 +45,7 @@ data {
 
    // vector of prior estimates of the warp, theta, and sigma parameters
    // (in that order) for the cumulative paid loss
-   vector[3] prior_params;
+   matrix[N, 3] prior_params;
 }
 transformed data {
    // incremental data
@@ -56,7 +56,7 @@ transformed data {
    vector[N] incremental_paid_loss_per_exposure = incremental_paid_loss / exposure;
 
    // prior log parameters
-   vector[2] prior_log_params = log(prior_params[1:2]);
+   matrix[N, 2] prior_log_params = log(prior_params[, 1:2]);
 }
 parameters {
    // parameters are nonnegative and skewed to the right, so we use a lognormal distribution
