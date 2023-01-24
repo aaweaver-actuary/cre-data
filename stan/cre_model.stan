@@ -25,6 +25,12 @@ data {
    // number of distinct development periods
    int<lower=1> N_development_periods;
 
+   // number of modelling groups
+   int<lower=1> N_groups;
+
+   // number of lines of business
+   int<lower=1> N_lines_of_business;
+
    // treaty period
    vector<lower=1, upper=N_treaty_period>[N] treaty_period;
 
@@ -37,15 +43,21 @@ data {
    // treaty id for each data point
    vector<lower=1, upper=N_treaties>[N] treaty_id;
 
+   // modelling group id for each data point
+   vector<lower=1, upper=N_groups>[N] group_id;
+
+   // line of business id for each data point
+   vector<lower=1, upper=N_lines_of_business>[N] line_of_business_id;
+
    // paid loss for each treaty period - development period pair
    vector[N] cumulative_paid_loss;
 
    // reported loss for each treaty period - dev period
    // vector[N] cumulative_reported_loss;
 
-   // vector of prior estimates of the warp, theta, and sigma parameters
-   // (in that order) for the cumulative paid loss
-   matrix[N, 3] prior_params;
+   // matrix of prior estimates of the warp, theta, and elr parameters
+   // (in that order) for the cumulative paid loss, one for each group
+   matrix[N_groups, 3] prior_params;
 }
 transformed data {
    // incremental data
@@ -56,24 +68,24 @@ transformed data {
    vector[N] incremental_paid_loss_per_exposure = incremental_paid_loss / exposure;
 
    // prior log parameters
-   matrix[N, 2] prior_log_params = log(prior_params[, 1:2]);
+   matrix[N_groups, 3] prior_log_params = log(prior_params);
 }
 parameters {
    // parameters are nonnegative and skewed to the right, so we use a lognormal distribution
    // only two parameters: warp and theta
-   vector[2] total_log_params; // log of total warp and total theta
+   matrix[N_groups, 2] total_log_params;
 
    // sigmas for the log of the total warp and total theta
-   vector<lower=0>[2] log_param_sigmas;
+   matrix<lower=0>[N_groups, 2] log_param_sigmas;
 
    // correlation parameter for the log of total warp and total theta
-   real<lower=-1, upper=1> rho;
+   vector<lower=-1, upper=1>[N_groups] rho;
 
    // total sigma is the standard deviation of the incremental loss per exposure
-   real<lower=0> total_sigma;
+   real<lower=0>[N_groups] total_sigma;
 
    // skewness parameter for the incremental loss per exposure
-   real loss_skew;
+   real loss_skew[N_groups];
 
    // ==============================================================================
    // leaving this out for now -- will hopefully add back in later =================
@@ -83,14 +95,23 @@ parameters {
 }
 transformed parameters {
    // these are the parameters that are used in the model
-   vector[2] total_params = exp(total_log_params);
+   // total parameters
+   matrix[N_groups, 2] total_params = exp(total_log_params);
 
-   // variance-covariance matrix for the log of total warp and total theta
-   matrix[2,2] log_param_var_cov_matrix;
-   log_param_var_cov_matrix[1, 1] = log_param_sigmas[1] * log_param_sigmas[1]; // variance of log of total warp (diagonal element)
-   log_param_var_cov_matrix[2, 2] = log_param_sigmas[2] * log_param_sigmas[2]; // variance of log of total theta (diagonal element)
-   log_param_var_cov_matrix[1, 2] = rho * log_param_sigmas[1] * log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
-   log_param_var_cov_matrix[2, 1] = rho * log_param_sigmas[1] * log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+   // variance-covariance matrix for the log of total warp and total theta, for each group
+   matrix[N_groups, 3, 3] log_param_var_cov_matrix;
+   // need to do the following for each group
+   // log_param_var_cov_matrix[1, 1] = log_param_sigmas[1] * log_param_sigmas[1]; // variance of log of total warp (diagonal element)
+   // log_param_var_cov_matrix[2, 2] = log_param_sigmas[2] * log_param_sigmas[2]; // variance of log of total theta (diagonal element)
+   // log_param_var_cov_matrix[1, 2] = rho * log_param_sigmas[1] * log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+   // log_param_var_cov_matrix[2, 1] = rho * log_param_sigmas[1] * log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+   for(g in 1:N_groups){
+      log_param_var_cov_matrix[g, 1, 1] = log_param_sigmas[g, 1] * log_param_sigmas[g, 1]; // variance of log of total warp (diagonal element)
+      log_param_var_cov_matrix[g, 2, 2] = log_param_sigmas[g, 2] * log_param_sigmas[g, 2]; // variance of log of total theta (diagonal element)
+      log_param_var_cov_matrix[g, 1, 2] = rho[g] * log_param_sigmas[g, 1] * log_param_sigmas[g, 2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+      log_param_var_cov_matrix[g, 2, 1] = rho[g] * log_param_sigmas[g, 1] * log_param_sigmas[g, 2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+   }
+   
 
    // loss measures
 
