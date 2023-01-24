@@ -69,6 +69,14 @@ transformed data {
 
    // prior log parameters
    matrix[N_groups, 3] prior_log_params = log(prior_params);
+
+   // number of calendar_periods
+   int<lower=1> N_calendar_periods = N_treaty_periods * N_development_periods;
+
+   // matrix of calendar periods
+   matrix[N, N_calendar_periods] calendar_periods = get_calendar_periods(N, N_treaty_periods, N_development_periods, treaty_period, development_period);
+
+   // matrix similar to calendar_periods, but instead has 0's and 1's 
 }
 parameters {
    // parameters are nonnegative and skewed to the right, so we use a lognormal distribution
@@ -130,7 +138,24 @@ transformed parameters {
    vector[N_groups] b_gp = normal_rng(b, 0.1, N_groups);
    
 
-   // loss measures
+   // ==============================================================================
+   // ===== loss measures  =========================================================
+   // ======= optimize parameters for these measures for a point estimate ==========
+   // ==============================================================================
+
+   // use this function to calculate mean absolute deviation:
+   // mean_absolute_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss)
+   real mean_abs_error = mean_absolute_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+
+   // use the mean square error function (don't name it the same thing as the function):
+   // real mean_square_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss)
+   real mean_square_error = mean_square_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+
+   // use the mean asymmetric error function (don't name it the same thing as the function):
+   // real mean_asymmetric_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss)
+   real mean_asymmetric_error = mean_asymmetric_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+
+
 
    
    // ==============================================================================
@@ -217,11 +242,10 @@ model{
       total_loss_skew
       );
 }
-
 generated quantities {
-   // incremental paid loss per exposure gets multiplied by the exposure to get the incremental paid loss
-   real incremental_paid_loss = incremental_paid_loss_per_exposure * exposure;
-
    // calculate the cumulative paid loss using the inc_to_cum function from the `cre_model_functions.stan` file
-   real cumulative_paid_loss = inc_to_cum(N, treaty_id, development_period, incremental_paid_loss, cumulative_paid_loss);
+   // and using the relationship incremental_paid_loss = incremental_paid_loss_per_exposure * exposure
+   real cumulative_paid_loss = inc_to_cum(N, incremental_paid_loss_per_exposure * exposure, treaty_id);
+
+
 }
