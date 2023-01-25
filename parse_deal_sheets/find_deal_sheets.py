@@ -53,26 +53,95 @@ def get_subfolders(folder : str = None) -> list:
     return(out2)
     
 ### given folder, find subfolders, then find their subfolders, until lowest level
-def get_all_subfolders(folder):
-    level = {}
-    level['1'] = ['{}\\{}'.format(folder, x) for x in get_subfolders(folder=folder)]
-    cur_level = 1
-    loop_ind = True
-    while loop_ind:
-        prior_level = cur_level
-        cur_level = cur_level + 1
+def get_all_subfolders(folder : str = None) -> list:
+    """
+    # Description
+        Given a folder, find subfolders, then find their subfolders, 
+        and on and on, until reaching the lowest level
+    # Inputs
+        folder: string, the folder to search
+    # Outputs
+        out: list, the subfolders in the folder
+    # Imports
+        import os
+    # Example
+        >>> # assume there is a folder called "test" in the current directory
+        >>> # with subfolders called "subtest1" and "subtest2"
+        >>> # "subtest1" has subfolders called "subsubtest1" and "subsubtest2"
+        >>> # "subtest2" has subfolders called "subsubtest3" and "subsubtest4"
+        >>> get_all_subfolders(folder='test')
+        ['subtest1', 'subtest2',
+        'subtest1\\subsubtest1','subtest1\\subsubtest2',
+        'subtest2\\subsubtest3', 'subtest2\\subsubtest4']
+    """
+
+    ## this function should reproduce the following, but as optimized for speed as possible
+    # level = {}
+    # level['1'] = ['{}\\{}'.format(folder, x) for x in get_subfolders(folder=folder)]
+    # cur_level = 1
+    # loop_ind = True
+    # while loop_ind:
+    #     prior_level = cur_level
+    #     cur_level = cur_level + 1
         
-        level['{}'.format(cur_level)] = []
-        for fold in level['{}'.format(prior_level)]:
-            level['{}'.format(cur_level)] = level['{}'.format(cur_level)] + ['{}\\{}'.format(fold, x) for x in get_subfolders(folder=fold)] 
+    #     level['{}'.format(cur_level)] = []
+    #     for fold in level['{}'.format(prior_level)]:
+    #         level['{}'.format(cur_level)] = level['{}'.format(cur_level)] + ['{}\\{}'.format(fold, x) for x in get_subfolders(folder=fold)] 
             
-        if len(level['{}'.format(cur_level)]) == len(level['{}'.format(prior_level)]):
-            loop_ind = False
+    #     if len(level['{}'.format(cur_level)]) == len(level['{}'.format(prior_level)]):
+    #         loop_ind = False
         
+    # out = []
+    # for k in list(level.keys()):
+    #     out = out + level[k]
+
+    level = {}
+
+    # get the subfolders in the top level folder
+    level['1'] = [os.path.join(folder, x) for x in get_subfolders(folder=folder)]
+
+    # set the current level to 1
+    cur_level = 1
+
+    # set the loop indicator to True
+    loop_ind = True
+
+    # while the loop indicator is True
+    while loop_ind:
+
+        # set the prior level to the current level
+        prior_level = cur_level
+
+        # increment the current level
+        cur_level = cur_level + 1
+
+        # set the current level to an empty list
+        level['{}'.format(cur_level)] = (x for x in level['{}'.format(cur_level)])
+
+        # for each folder in the prior level
+        for fold in level['{}'.format(prior_level)]:
+                
+                # get the subfolders in the folder
+                level['{}'.format(cur_level)] = level['{}'.format(cur_level)] + (os.path.join(fold, x) for x in get_subfolders(folder=fold))
+
+        # if the length of the current level is the same as the prior level
+        if len(list(level['{}'.format(cur_level)])) == len(list(level['{}'.format(prior_level)])):
+            
+            # this means that there are no more subfolders, because otherwise the
+            # length of the current level would be greater than the prior level
+            # to break the loop, set the loop indicator to False
+            loop_ind = False
+
+    # initialize the output list
     out = []
-    for k in list(level.keys()):
-        out = out + level[k]
-    
+
+    # for each key in the level dictionary (using a generator expression)
+    for k in (x for x in level.keys()):
+            
+            # extend the output list with the list of folders in the current level
+            out.extend(level[k])
+
+    # return the output list
     return(out)
     
     
