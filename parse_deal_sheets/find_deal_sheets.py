@@ -146,9 +146,32 @@ def get_all_subfolders(folder : str = None) -> list:
     
     
 ### given folder, retrun the files in that folder
-def get_files(folder):
-    out = [os.path.isdir('{}\\{}'.format(folder, x)) for x in os.listdir(folder)]
-    out2 = list(np.array(os.listdir(folder))[np.logical_not(out)])
+def get_files(folder : str = None) -> list:
+    """
+    # Description
+        Given a folder, return the files in that folder
+    # Inputs
+        folder: string, the folder to search
+    # Outputs
+        out2: list, the files in the folder
+    # Imports
+        import os
+    # Example
+        >>> # assume there is a folder called "test" in the current directory
+        >>> # with files called "test1.txt" and "test2.txt"
+        >>> get_files(folder='test')
+        ['test1.txt', 'test2.txt']
+    """
+    # out = [os.path.isdir('{}\\{}'.format(folder, x)) for x in os.listdir(folder)] # this line can be optimized by using os.path.join instead of string concatenation:
+    
+    # this line can be optimized by using os.path.join instead of string concatenation
+    # compiles a list of booleans, where True indicates that the item is a folder
+    out = [os.path.isdir(os.path.join(folder, x)) for x in os.listdir(folder)]
+    
+
+    # this line can be optimized by using os.path.join instead of string concatenation
+    # out2 = list(np.array(os.listdir(folder))[np.logical_not(out)])
+    out2 = list(np.array(os.listdir(folder))[np.logical_not(out)]) # is it ok to use numpy here: no, because it is not a core python library
     return(out2)
     
 ### given folder, return all the files in that folder, as well as in subfolders
