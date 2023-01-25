@@ -11,14 +11,45 @@ import sys
 sys.path.append(r'O:\PARM\Corporate Actuarial\Reserving\Scripts\python')
 sys.path.append('./')
 
+# this is a script that contains functions to get user inputs
+# this section is grabbing those inputs
 import user_inputs as i
 folder = i.get_folder()
 show_every=i.get_show_every()
 
 ### given folder, return the subfolders
-def get_subfolders(folder):
+def get_subfolders(folder : str = None) -> list:
+    """
+    # Description
+        Given a folder, return the subfolders
+    # Inputs
+        folder: string, the folder to search
+    # Outputs
+        out: list, the subfolders in the folder
+    # Imports
+        import os
+    # Example
+        >>> # assume there is a folder called "test" in the current directory
+        >>> # with subfolders called "subtest1" and "subtest2"
+        >>> get_subfolders(folder='test')
+        ['subtest1', 'subtest2']
+    """
+    # get the list of files in the folder
+    # `os.path.isdir(x)`` returns True if `x` is a directory
+    # `os.listdir(folder)` returns a list of the files in the `folder`
+    # uses list comprehension to create a list of booleans
     out = [os.path.isdir('{}\\{}'.format(folder, x)) for x in os.listdir(folder)]
-    out2 = list(np.array(os.listdir(folder))[out])
+
+    # use the list of booleans to filter the list of files
+    # should reproduce this code, but as optimized as possible:
+    # out2 = list(np.array(os.listdir(folder))[out])
+    out2 = [x for x, y in zip(os.listdir(folder), out) if y]
+
+    # this is better because:
+    # 1. it doesn't require numpy
+    # 2. it doesn't require a list comprehension (it uses a generator expression)
+
+    # return the list of subfolders
     return(out2)
     
 ### given folder, find subfolders, then find their subfolders, until lowest level
