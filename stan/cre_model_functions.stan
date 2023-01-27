@@ -140,10 +140,13 @@ functions {
       real loss_sum = 0;
       real exposure_sum = 0;
 
+      // calculate the cumulative exposure * G_loglogistic
+      vector[n] used_up_exposure = cum_exposure * G_loglogistic(n, x, warp, theta);
+
       // calculate the sum of the product of the cumulative exposure and the log-logistic distribution
       for (i in 1:n) {
          loss_sum += cum_loss[i];
-         exposure_sum += cum_exposure[i] * G_loglogistic(n, x, warp, theta)[i];
+         exposure_sum += used_up_exposure[i];
       }
 
       // return the ELR
