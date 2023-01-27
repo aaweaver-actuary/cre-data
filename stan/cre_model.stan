@@ -89,7 +89,7 @@ parameters {
 
    // skewness parameter for the incremental loss per exposure
    real total_loss_skew;
-   vector group_loss_skew[N_groups];
+   vector[N_groups] group_loss_skew;
 
    // ==============================================================================
    // leaving this out for now -- will hopefully add back in later =================
