@@ -1,4 +1,5 @@
-#include "cre_model_functions.stan"
+#include "clark_model_functions.stan"
+#include "data_manipulation_functions.stan"
 #include "loss_functions.stan"
 
 // functions {
