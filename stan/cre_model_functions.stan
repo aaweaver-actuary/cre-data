@@ -140,13 +140,10 @@ functions {
       real loss_sum = 0;
       real exposure_sum = 0;
 
-      // calculate the cumulative exposure * G_loglogistic
-      vector[n] used_up_exposure = cum_exposure * G_loglogistic(n, x, warp, theta);
-
       // calculate the sum of the product of the cumulative exposure and the log-logistic distribution
       for (i in 1:n) {
          loss_sum += cum_loss[i];
-         exposure_sum += used_up_exposure[i];
+         exposure_sum += cum_exposure[i] * G_loglogistic(n, x, warp, theta)[i];
       }
 
       // return the ELR
@@ -219,12 +216,31 @@ functions {
    // having to pass in the chain ladder ultimate, Cape Cod ultimate, elr, and G separately
    // uses the functions above, including elr_loglogistic and G_loglogistic for the elr and G
    // calculations
-   vector benktander_ult_from_data(vector cum_loss, vector cum_exposure, vector params) {
-      return benktander_ult(
-         chain_ladder_ult(cum_loss, G_loglogistic(cum_loss, cum_exposure, params[1], params[2])),
-         cape_cod_ult(cum_loss, cum_exposure, elr_loglogistic(cum_loss, cum_exposure, params[1], params[2]), G_loglogistic(cum_loss, cum_exposure, params[1], params[2])),
-         G_loglogistic(cum_loss, cum_exposure, params[1], params[2])
-      );
+   vector benktander_ult_from_data(int n, vector cum_loss, vector cum_exposure, vector age, vector params) {
+      vector[n] G = G_loglogistic(n, age, params[1], params[2]);
+      
+      // calculate the chain ladder ultimate
+      vector[n] chain_ladder = cum_loss ./ G;
+      
+      // calculate the ELR
+      real elr = elr_loglogistic(n, cum_loss, cum_exposure, age, params[1], params[2]);
+
+      // initialize the cape cod ultimate vector and the benktander ultimate vector
+      vector[n] cape_cod;
+      vector[n] benktander;
+
+      for(i in 1:n){
+         // calculate the cape cod ultimate
+         cape_cod[n] = cum_loss[n] + (elr * cum_exposure[n] * (1 - G[n]));
+      }
+     
+     for(i in 1:n){
+         // calculate the benktander ultimate
+         benktander[n] = (G[n] * chain_ladder[n] ) + ((1 - G[n]) * cape_cod[n]);
+     }
+     
+     // return the benktander ultimate
+     return benktander;
    }
 
 
