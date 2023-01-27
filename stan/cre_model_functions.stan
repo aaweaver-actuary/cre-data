@@ -103,8 +103,17 @@ functions {
       * > // 10^1 / (10^1 + 1^1) = 0.9090909 / (0.9090909 + 1) = 0.9090909 / 1.9090909 = 0.37142857
       * [1] 0.09090909 0.11111111 0.13333333 0.15789474 0.18518519 0.21538462 0.24878049 0.28571429 0.32653061 0.37142857
       */
-   vector G_loglogistic(vector x, real warp, real theta) {
-      return (x .^ warp) ./ ((x .^ warp) + (theta .^ warp));
+   vector G_loglogistic(int n, vector x, real warp, real theta) {
+      vector[n] out;
+      
+      // loop through the data and calculate the log-logistic distribution
+      for(i in 1:n){
+         // calculate the log-logistic distribution
+         out[i] = (x[i] ^ warp) / ((x[i] ^ warp) + (theta ^ warp)) ;
+         }
+      
+      // return the vector of log-logistic distribution values
+      return out;
    }
 
    /**
