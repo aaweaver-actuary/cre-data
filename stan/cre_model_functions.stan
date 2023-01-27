@@ -387,26 +387,15 @@ functions {
       * @examples
       * > prior_mean(5, c(10, 10, 10, 10, 10), c(0.5, 0.5, 0.5, 0.5, 0.5), c(1, 1, 1, 1, 1), c(0, 0, 0, 0, 0), c(1, 1), 0.5)
       */
-   vector prior_mean(int n, vector benktander_ult, vector G_current, vector G_prior, vector total_params, real zero_prob) {
+   vector prior_mean(int n, vector benktander_ult, vector G_current, vector G_prior, vector total_params) {
       // initialize a vector of length n to hold the prior mean
       vector[n] prior_mean;
 
       // loop through the data
       for (i in 1:n) {
 
-         // if the prior mean is 0,
-         if (bernoulli_rng(zero_prob)) {
-
-            // set the prior mean to 0
-            prior_mean[i] = 0;
-         }
-
-         // if the prior mean is nonzero,
-         else {
-
-            // calculate the prior mean
-            prior_mean[i] = benktander_ult[i] * (G_current[i] - G_prior[i]);
-         }
+         // calculate the prior mean
+         prior_mean[i] = benktander_ult[i] * (G_current[i] - G_prior[i]);
       }
 
       // return the prior mean
