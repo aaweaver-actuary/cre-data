@@ -219,8 +219,8 @@
       G_current = G_loglogistic(n, development_period, total_params[1], total_params[2]);
 
       // calculate G_prior using the G_loglogistic function defined above, but with the development period
-      // that is calculated from the function `prior_development_period` defined above
-      G_prior = G_loglogistic(n, prior_development_period(n, treaty_id, development_period), total_params[1], total_params[2]);
+      // that is calculated from the function `prior_dev_period` defined above
+      G_prior = G_loglogistic(n, prior_dev_period(n, treaty_id, development_period), total_params[1], total_params[2]);
 
       // calculate benktander_ult using the benktander_ultimate function defined above
       benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, total_params);
@@ -267,7 +267,7 @@
 
       // calculate G_prior using the G_loglogistic function defined above, but with the development period
       // that is calculated from the function `prior_development_period` defined above
-      G_prior = G_loglogistic(n, treaty_id, prior_development_period(n, treaty_id, development_period), cumulative_loss, total_params);
+      G_prior = G_loglogistic(n, treaty_id, prior_dev_period(n, treaty_id, development_period), cumulative_loss, total_params);
 
       // calculate benktander_ult using the benktander_ultimate function defined above
       benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, total_params);
