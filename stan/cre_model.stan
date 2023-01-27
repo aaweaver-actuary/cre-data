@@ -56,16 +56,16 @@ transformed data {
    // vector[N] incremental_reported_loss = cum_to_inc(N, cumulative_reported_loss, treaty_id);
 
    // incremental loss per exposure
-   vector[N] incremental_paid_loss_per_exposure = incremental_paid_loss / exposure;
+   vector[N] incremental_paid_loss_per_exposure = incremental_paid_loss ./ exposure;
 
    // prior log parameters
    matrix[N_groups, 3] prior_log_params = log(prior_params);
 
    // number of calendar_periods
-   int<lower=1> N_calendar_periods = N_treaty_periods * N_development_periods;
+   // int<lower=1> N_calendar_periods = N_treaty_periods * N_development_periods;
 
    // matrix of calendar periods
-   matrix[N, N_calendar_periods] calendar_periods = get_calendar_periods(N, N_treaty_periods, N_development_periods, treaty_period, development_period);
+   // matrix[N, N_calendar_periods] calendar_periods = get_calendar_periods(N, N_treaty_periods, N_development_periods, treaty_period, development_period);
 
    // matrix similar to calendar_periods, but instead has 0's and 1's 
 }
