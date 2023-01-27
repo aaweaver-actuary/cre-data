@@ -1,4 +1,4 @@
-functions{
+
     // this script contains calculated loss functions for optimization of the cumulative loss function
 
     /**
@@ -85,4 +85,3 @@ functions{
         return mean(asymmetric_error);
     }
     
-}    

@@ -1,6 +1,6 @@
-#include "data_manipulation_functions.stan"
 
-functions{
+
+
     /**
       * @title Log-logistic distribution
       * @description The log-logistic distribution is a continuous probability distribution with parameters \code{warp} and \code{theta}. It is a member of the family of generalized logistic distributions.
@@ -314,4 +314,3 @@ functions{
         // return the cumulative loss
         return cumulative_loss;
     }
-}

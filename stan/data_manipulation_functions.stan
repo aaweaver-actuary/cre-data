@@ -1,4 +1,4 @@
-functions{
+
     /**
       * @title Find the prior cumulative loss amount
       * @description Find the prior cumulative loss amount for a given treaty and development period. 
@@ -394,4 +394,3 @@ functions{
       
       return calendar_period_indicator_matrix;
    }    
-}
