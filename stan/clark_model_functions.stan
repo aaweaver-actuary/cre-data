@@ -1,4 +1,5 @@
 #include "data_manipulation_functions.stan"
+
 functions{
     /**
       * @title Log-logistic distribution
@@ -27,6 +28,7 @@ functions{
       // return the vector of log-logistic distribution values
       return out;
    }
+
 
    /**
       * @title Calculation of ELR
