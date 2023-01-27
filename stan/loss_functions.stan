@@ -69,16 +69,16 @@
     * > mean_asymmetric_error_cum_loss(3, [1, 1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3])
     */
     real mean_asymmetric_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss) {
-        vector[N] modeled_cumulative_loss;
+        vector[N] temp_modeled_cumulative_loss;
         vector[N] asymmetric_error;
         
-        modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure)
+        temp_modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure);
 
         for (i in 1:N) {
             if (cumulative_loss[i] > modeled_cumulative_loss[i]) {
-                asymmetric_error[i] = (cumulative_loss[i] - modeled_cumulative_loss[i])^2;
+                asymmetric_error[i] = (cumulative_loss[i] - temp_modeled_cumulative_loss[i])^2;
             } else {
-                asymmetric_error[i] = fabs(cumulative_loss[i] - modeled_cumulative_loss[i]);
+                asymmetric_error[i] = fabs(cumulative_loss[i] - temp_modeled_cumulative_loss[i]);
             }
         }
 
