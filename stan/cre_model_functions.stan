@@ -92,6 +92,7 @@ functions {
    /**
       * @title Log-logistic distribution
       * @description The log-logistic distribution is a continuous probability distribution with parameters \code{warp} and \code{theta}. It is a member of the family of generalized logistic distributions.
+      * @param n Integer number of rows in the data.
       * @param x A vector of values at which to evaluate the log-logistic distribution.
       * @param warp A real number that controls the shape of the distribution.
       * @param theta A real number that controls the scale of the distribution.
@@ -122,6 +123,7 @@ functions {
       * \deqn{ELR = \frac{\sum \text{cum. loss}}{\sum \text{(cum. exposure) * G_loglogistic}}}
       * where the \code{G_loglogistic} function is the log-logistic distribution from above, and the age `x`
       * is the most recent age in the development period for the specific treaty.
+      * @param n Integer number of rows in the data.
       * @param cum_loss A vector of cumulative losses.
       * @param cum_exposure A vector of cumulative exposures.
       * @param x A vector of values at which to evaluate the log-logistic cumulative distribution function.
@@ -131,16 +133,17 @@ functions {
       * @examples
       * > G_loglogistic(1:5, 1, 1)
       * [1] 0.09090909 0.11111111 0.13333333 0.15789474 0.18518519
-      * > elr(c(10, 20, 30, 40, 50), c(100, 200, 300, 400, 500), 1:5, 1, 1)
+      * > elr_loglogistic(c(10, 20, 30, 40, 50), c(100, 200, 300, 400, 500), 1:5, 1, 1)
       * [1] 0.37142857
       */
-   real elr_loglogistic(vector cum_loss, vector cum_exposure, vector x, real warp, real theta) {
-      real loss_sum = sum(cum_loss);
-      real exposure_sum;
+   real elr_loglogistic(int n, vector cum_loss, vector cum_exposure, vector x, real warp, real theta) {
+      real loss_sum = 0;
+      real exposure_sum = 0;
 
       // calculate the sum of the product of the cumulative exposure and the log-logistic distribution
-      for (i in 1:size(cum_exposure)) {
-         exposure_sum += cum_exposure[i] * G_loglogistic(x[i], warp, theta);
+      for (i in 1:n) {
+         loss_sum += cum_loss[i];
+         exposure_sum += cum_exposure[i] * G_loglogistic(n, x, warp, theta)[i];
       }
 
       // return the ELR
