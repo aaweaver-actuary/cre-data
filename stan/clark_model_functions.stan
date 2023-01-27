@@ -1,3 +1,4 @@
+#include "data_manipulation_functions.stan"
 functions{
     /**
       * @title Log-logistic distribution
@@ -205,19 +206,19 @@ functions{
       */
    vector prior_mean_from_data(int n, vector treaty_id, vector development_period, vector cumulative_loss, vector exposure, vector total_params, real zero_prob) {
       // initialize a vector of length n to hold the prior mean
-      vector[n] prior_mean;
+      vector[n] temp_prior_mean;
 
       // initialize vectors of length n to hold `prior_mean` inputs
-      vector[n] benktander_ult;
+      vector[n] temp_benktander_ult;
       vector[n] G_current;
       vector[n] G_prior;
       
       // calculate G_current using the G_loglogistic function defined above
-      G_current = G_loglogistic(n, treaty_id, development_period, cumulative_loss, total_params);
+      G_current = G_loglogistic(n, development_period, total_params[1], total_params[2]);
 
       // calculate G_prior using the G_loglogistic function defined above, but with the development period
       // that is calculated from the function `prior_development_period` defined above
-      G_prior = G_loglogistic(n, treaty_id, prior_development_period(n, treaty_id, development_period), cumulative_loss, total_params);
+      G_prior = G_loglogistic(n, prior_development_period(n, treaty_id, development_period), total_params[1], total_params[2]);
 
       // calculate benktander_ult using the benktander_ultimate function defined above
       benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, total_params);
