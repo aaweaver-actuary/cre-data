@@ -1,17 +1,23 @@
-// not including any user-defined functions in this file
-// they need to be imported from the "cre_model_functions.stan" file
-// which is included in the same folder as this file
+#include "cre_model_functions.stan"
+#include "loss_functions.stan"
 
-// this is the model for the cumulative paid loss
-// the model is a hierarchical model with an exponentially-modified
-// normal distribution for the incremental loss per exposure
+// functions {
+	// not including any user-defined functions in this file
+	// they need to be imported from the "cre_model_functions.stan" file
+	// which is included in the same folder as this file
 
-// import the user-defined functions:
-functions {
-   #include "cre_model_functions.stan"
-   #include "cre_model_functions.stan"
-   #include "loss_functions.stan"
-}
+	// this is the model for the cumulative paid loss
+	// the model is a hierarchical model with an exponentially-modified
+	// normal distribution for the incremental loss per exposure
+
+	// import the user-defined functions:
+	
+   
+   
+   // #include <O:/PARM/Corporate Actuarial/Reserving/Scripts/stan/cre_model/cre_model_functions.stan>
+   // 
+   // #include <O:/PARM/Corporate Actuarial/Reserving/Scripts/stan/cre_model/loss_functions.stan>
+// }
 data {
    // number of data points
    int<lower=1> N;
