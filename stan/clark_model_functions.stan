@@ -252,30 +252,30 @@
       */
    vector prior_mean_from_data_nozero(int n, vector treaty_id, vector development_period, vector cumulative_loss, vector exposure, vector total_params) {
       // initialize a vector of length n to hold the prior mean
-      vector[n] prior_mean;
+      vector[n] temp_prior_mean;
 
       // initialize vectors of length n to hold `prior_mean` inputs
-      vector[n] benktander_ult;
+      vector[n] temp_benktander_ult;
       vector[n] G_current;
       vector[n] G_prior;
       
       // calculate G_current using the G_loglogistic function defined above
-      G_current = G_loglogistic(n, treaty_id, development_period, cumulative_loss, total_params);
+      G_current = G_loglogistic(n, development_period, total_params[1], total_params[2]);
 
       // calculate G_prior using the G_loglogistic function defined above, but with the development period
       // that is calculated from the function `prior_dev_period` defined above
-      G_prior = G_loglogistic(n, treaty_id, prior_dev_period(n, treaty_id, development_period), cumulative_loss, total_params);
+      G_prior = G_loglogistic(n, prior_dev_period(n, treaty_id, development_period), total_params[1], total_params[2]);
 
       // calculate benktander_ult using the benktander_ultimate function defined above
-      benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, total_params);
+      temp_benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, development_period, total_params);
 
       // calculate as the estimated Benktander ultimate multiplied by the difference between the 
       // percent of ultimate loss at the current development period and the percent of ultimate loss
       // at the prior development period
-      prior_mean = benktander_ult * (G_current - G_prior);
+      temp_prior_mean = temp_benktander_ult .* (G_current - G_prior);
 
       // return the prior mean
-      return prior_mean;
+      return temp_prior_mean;
    }
 
    // function that takes n, incremental loss per exposure and exposure and returns the cumulative paid loss
