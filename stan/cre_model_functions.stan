@@ -252,7 +252,7 @@ functions {
       * incremental loss is the same as the cumulative loss.
       * @param N The number of data points.
       * @param cum_loss A vector of length `N` with cumulative losses by treaty.
-      * @param treaty_id A vector of length `N` with treaty IDs for each treaty.
+      * @param treaty_id An integer vector of length `N` with the treaty ID for each cumulative loss.
       * @return A vector of length `N` of incremental losses by treaty.
       * @examples
       * > cum_to_inc(5, c(10, 20, 30, 40, 50), c(1, 1, 1, 2, 2))
@@ -269,38 +269,35 @@ functions {
       * > // 50 - 40 = 10
       * [1] 10 10 10 40 10
       */
-   vector cum_to_inc(int N, vector cum_loss, vector treaty_id) {
+   vector cum_to_inc(int N, vector cum_loss, int[] treaty_id) {
       // initialize a vector of length N to hold the incremental loss
       vector[N] inc_loss;
-
-      // initialize a variable to hold the previous treaty ID
-      // to check if the current treaty ID is the same as the previous one
-      int prev_treaty_id = 0;
-
-      // initialize a variable to hold the previous cumulative loss
-      real prev_cum_loss = 0;
 
       // loop through the data
       for (n in 1:N) {
 
-         // if the current treaty ID is the same as the previous one,
-         if (treaty_id[n] == prev_treaty_id) {
-
-            // subtract the previous cumulative loss from the current cumulative loss
-            inc_loss[n] = cum_loss[n] - prev_cum_loss;
-         }
-         
-         // if the current treaty ID is not the same as the previous one,
-         else {
-
+         if (n == 1) {
+            // if the current treaty is in the first development period,
             // the incremental loss is the same as the cumulative loss
             inc_loss[n] = cum_loss[n];
          }
 
-         // update the previous treaty ID and previous cumulative loss
-         // so that they can be used in the next iteration of the loop
-         prev_treaty_id = treaty_id[n];
-         prev_cum_loss = cum_loss[n];
+         else {
+            // if the current treaty ID is the same as the previous one,
+            if (treaty_id[n] == treaty_id[n-1]) {
+
+               // subtract the previous cumulative loss from the current cumulative loss
+               inc_loss[n] = cum_loss[n] - cum_loss[n-1];
+            }
+            
+            // if the current treaty ID is not the same as the previous one,
+            else {
+
+               // the incremental loss is the same as the cumulative loss
+               inc_loss[n] = cum_loss[n];
+            }   
+         }
+         
       }
 
       // return the incremental loss
