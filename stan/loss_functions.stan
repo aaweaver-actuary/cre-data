@@ -16,12 +16,12 @@
     * > mse_cummean_square_error_cum_loss_loss(3, [1, 1, 2], [0.5, 1.7, 3.2], [10, 20, 30], [1, 2, 3])
     */
     real mean_square_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss) {
-        vector[N] modeled_cumulative_loss;
+        vector[N] temp_modeled_cumulative_loss;
         vector[N] squared_error;
         
-        modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure)
+        temp_modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure);
 
-        squared_error = (cumulative_loss - modeled_cumulative_loss)^2;
+        squared_error = square(cumulative_loss - temp_modeled_cumulative_loss);
 
         return mean(squared_error);
     }
