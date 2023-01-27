@@ -1,6 +1,5 @@
-// this script contains calculated loss functions for optimization
 functions{
-    #include "cre_model_functions.stan"
+    // this script contains calculated loss functions for optimization of the cumulative loss function
 
     /**
     * @title Mean Squared Error Loss Function
