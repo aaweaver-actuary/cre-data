@@ -41,10 +41,10 @@
     * > mean_absolute_error_cum_loss(3, [1, 1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3])
     */
     real mean_absolute_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss) {
-        vector[N] modeled_cumulative_loss;
+        vector[N] temp_modeled_cumulative_loss;
         vector[N] absolute_error;
         
-        modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure)
+        temp_modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure);
 
         absolute_error = fabs(cumulative_loss - modeled_cumulative_loss);
 
