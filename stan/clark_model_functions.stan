@@ -126,7 +126,7 @@
    // having to pass in the chain ladder ultimate, Cape Cod ultimate, elr, and G separately
    // uses the functions above, including elr_loglogistic and G_loglogistic for the elr and G
    // calculations
-   vector benktander_ult_from_data(int n, vector cum_loss, vector cum_exposure, vector age, vector params) {
+   vector benktander_ultimate_from_data(int n, vector cum_loss, vector cum_exposure, vector age, vector params) {
       vector[n] G = G_loglogistic(n, age, params[1], params[2]);
       
       // calculate the chain ladder ultimate
@@ -222,11 +222,11 @@
       // calculate benktander_ult using the benktander_ultimate function defined above
       temp_benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, development_period, total_params);
 
-      // calculate prior_mean using the prior_mean function defined above
-      prior_mean = prior_mean(n, temp_benktander_ult, G_current, G_prior, total_params, zero_prob);
+      // calculate temp_prior_mean using the prior_mean function defined above
+      temp_prior_mean = prior_mean(n, temp_benktander_ult, G_current, G_prior, total_params, zero_prob);
 
       // return the prior mean
-      return prior_mean;
+      return temp_prior_mean;
    }      
 
    // convenience function that calculates `prior_mean_from_data` for the case where `zero_prob` is 0
