@@ -223,7 +223,7 @@
       temp_benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, development_period, total_params);
 
       // calculate temp_prior_mean using the prior_mean function defined above
-      temp_prior_mean = prior_mean(n, temp_benktander_ult, G_current, G_prior, total_params, zero_prob);
+      temp_prior_mean = prior_mean(n, temp_benktander_ult, G_current, G_prior, total_params);
 
       // return the prior mean
       return temp_prior_mean;
