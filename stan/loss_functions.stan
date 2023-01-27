@@ -75,9 +75,10 @@
         temp_modeled_cumulative_loss = modeled_cumulative_loss(N, treaty_id, incremental_loss_per_exposure, exposure);
 
         for (i in 1:N) {
-            if (cumulative_loss[i] > modeled_cumulative_loss[i]) {
-                asymmetric_error[i] = (cumulative_loss[i] - temp_modeled_cumulative_loss[i])^2;
-            } else {
+            if (cumulative_loss[i] > temp_modeled_cumulative_loss[i]) {
+                asymmetric_error[i] = square(cumulative_loss[i] - temp_modeled_cumulative_loss[i]);
+            } 
+            else {
                 asymmetric_error[i] = fabs(cumulative_loss[i] - temp_modeled_cumulative_loss[i]);
             }
         }
