@@ -1,7 +1,4 @@
-
-
-
-    /**
+  /**
       * @title Log-logistic distribution
       * @description The log-logistic distribution is a continuous probability distribution with parameters \code{warp} and \code{theta}. It is a member of the family of generalized logistic distributions.
       * @param n Integer number of rows in the data.
@@ -223,10 +220,10 @@
       G_prior = G_loglogistic(n, prior_dev_period(n, treaty_id, development_period), total_params[1], total_params[2]);
 
       // calculate benktander_ult using the benktander_ultimate function defined above
-      benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, total_params);
+      temp_benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, development_period, total_params);
 
       // calculate prior_mean using the prior_mean function defined above
-      prior_mean = prior_mean(n, benktander_ult, G_current, G_prior, total_params, zero_prob);
+      prior_mean = prior_mean(n, temp_benktander_ult, G_current, G_prior, total_params, zero_prob);
 
       // return the prior mean
       return prior_mean;
@@ -266,7 +263,7 @@
       G_current = G_loglogistic(n, treaty_id, development_period, cumulative_loss, total_params);
 
       // calculate G_prior using the G_loglogistic function defined above, but with the development period
-      // that is calculated from the function `prior_development_period` defined above
+      // that is calculated from the function `prior_dev_period` defined above
       G_prior = G_loglogistic(n, treaty_id, prior_dev_period(n, treaty_id, development_period), cumulative_loss, total_params);
 
       // calculate benktander_ult using the benktander_ultimate function defined above
