@@ -23,13 +23,13 @@ data {
    int<lower=1> N_lines_of_business;
 
    // treaty period
-   vector<lower=1, upper=N_treaty_period>[N] treaty_period;
+   vector<lower=1, upper=N_treaty_periods>[N] treaty_period;
 
    // development period
    vector<lower=1, upper=N_development_periods>[N] development_period;
 
    // estimated exposure for each treaty
-   vector[<lower=0>N] exposure;
+   vector<lower=0>[N] exposure;
 
    // treaty id for each data point
    vector<lower=1, upper=N_treaties>[N] treaty_id;
