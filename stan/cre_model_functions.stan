@@ -269,7 +269,7 @@ functions {
       * > // 50 - 40 = 10
       * [1] 10 10 10 40 10
       */
-   vector cum_to_inc(int N, vector cum_loss, int[] treaty_id) {
+   vector cum_to_inc(int N, vector cum_loss, vector treaty_id) {
       // initialize a vector of length N to hold the incremental loss
       vector[N] inc_loss;
 
@@ -334,21 +334,20 @@ functions {
         // initialize a vector of length N to hold the cumulative loss
         vector[N] cum_loss;
     
-        // initialize a variable to hold the previous treaty ID
-        // to check if the current treaty ID is the same as the previous one
-        int prev_treaty_id = 0;
-    
-        // initialize a variable to hold the previous cumulative loss
-        real prev_cum_loss = 0;
-    
         // loop through the data
         for (n in 1:N) {
+          
+          if(n==1){
+            // the cumulative loss is the same as the incremental loss
+            cum_loss[n] = inc_loss[n];
+          }
+          else{
     
              // if the current treaty ID is the same as the previous one,
-             if (treaty_id[n] == prev_treaty_id) {
+             if (treaty_id[n] == treaty_id[n-1]) {
     
                 // add the previous cumulative loss to the current incremental loss
-                cum_loss[n] = inc_loss[n] + prev_cum_loss;
+                cum_loss[n] = inc_loss[n] + cum_loss[n-1];
              }
              
              // if the current treaty ID is not the same as the previous one,
@@ -357,11 +356,7 @@ functions {
                 // the cumulative loss is the same as the incremental loss
                 cum_loss[n] = inc_loss[n];
              }
-    
-             // update the previous treaty ID and previous cumulative loss
-             // so that they can be used in the next iteration of the loop
-             prev_treaty_id = treaty_id[n];
-             prev_cum_loss = cum_loss[n];
+        }
         }
     
         // return the cumulative loss
