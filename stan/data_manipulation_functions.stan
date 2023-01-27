@@ -365,7 +365,8 @@ functions{
       matrix[N_treaty_periods, N_development_periods] calendar_period_indicator_matrix;
 
       // calculate the max value of the vector
-      int max_x = fmax(x);
+      real max_x;
+      max_x = max(x);
 
       // loop over treaty periods and development periods
       for (t in 1:N_treaty_periods) {
