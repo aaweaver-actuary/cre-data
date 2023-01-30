@@ -175,38 +175,106 @@ def get_files(folder : str = None) -> list:
     return(out2)
     
 ### given folder, return all the files in that folder, as well as in subfolders
-def get_all_files(folder):
+def get_all_files(folder : str = None) -> pd.DataFrame:
+    """
+    # Description
+        Given a folder, return all the files in that folder, as well as in subfolders
+    # Inputs
+        folder: string, the folder to search
+                default: None
+    # Outputs
+        out: pandas DataFrame, the files in the folder, as well as in subfolders
+    # Imports
+        import pandas as pd
+        import numpy as np
+    # Example
+        >>> # assume there is a folder called "test" in the current directory
+        >>> # with files called "test1.txt" and "test2.txt"
+        >>> # assume there is a subfolder called "test_sub" in the folder "test"
+        >>> # with files called "test_sub1.txt" and "test_sub2.txt"
+        >>> get_all_files(folder='test')
+        top_level_folder folder file
+        0 test test1.txt
+        1 test test2.txt
+        2 test test_sub test_sub1.txt
+        3 test test_sub test_sub2.txt
+
+    """
+    # get the subfolders in the top level folder, using the function `get_all_subfolders`
     folder_list = get_all_subfolders(folder)
     
+    # initialize the output list
     out_list = []
-    
-    for fold in folder_list:
-        temp = pd.DataFrame(dict(file=get_files(fold)))
-        temp['folder'] = fold[len(folder)+1:]
-        temp['top_level_folder'] = folder
-        out_list.append(temp['top_level_folder folder file'.split()])
-        
-    out = pd.concat(out_list).reset_index(drop=True)
-    
+
+    # the following line can be optimized by using a list comprehension instead of a for loop:
+    # for fold in folder_list:
+    #     temp = pd.DataFrame(dict(file=get_files(fold)))
+    #     temp['folder'] = fold[len(folder)+1:]
+    #     temp['top_level_folder'] = folder
+    #     out_list.append(temp['top_level_folder folder file'.split()])
+
+    # this line creates a list of dataframes, where each dataframe contains the files in a subfolder
+    out_list = [pd.DataFrame(dict(file=get_files(fold)))['file'] for fold in folder_list]
+
+    # this line adds a column to each dataframe in the list, where the column contains the subfolder name
+    out_list = [x.assign(folder=fold[len(folder)+1:]) for x in out_list]
+
+    # this line adds a column to each dataframe in the list, where the column contains the top level folder name
+    out_list = [x.assign(top_level_folder=folder) for x in out_list]
+
+    # this line concatenates the dataframes in the list into a single dataframe
+    out_df = pd.concat(out_list).reset_index(drop=True)
        
-    ### filter out non-excel files
-    is_excel_ind = out['file'].str.lower().str.contains('.xls')
-    out = out.loc[is_excel_ind, :]
+    # filter out non-excel files by looking for the string ".xls" in the file name
+    # (will get files with the extensions .xls, .xlsx, .xlsm, etc.)
+    is_excel_ind = out_df.file.str.lower().str.contains('.xls')
+
+    # filter out files with some variation of the word "deal"
+    deal_filter = out.file.str.lower().str.contains('deal')
     
-    ### filter out files with some variation of the word "deal"
-    deal_filter = np.logical_or(out.file.str.lower().str.contains('deal')
-                                ,out.file.str.lower().str.contains('deal')
-                               )
-    
-    
+    # return the filtered dataframe
     return(out)
     
 ### test filename to find patterns for clues re: what type of contract
-def parse_filename_test(x, search_list):
+def parse_filename_test(x : str = None, search_list : list = None) -> pd.DataFrame:
+    """
+    # Description
+        Given a filename, return a dataframe with a column for each search term,
+        where the value is True if the search term is in the filename, and False
+        otherwise
+    # Inputs
+        x:  string, the filename
+            default: None
+        search_list: list, the search terms
+            default: None
+    # Outputs
+        out: pandas DataFrame, a dataframe with a column for each search term,
+            where the value is True if the search term is in the filename, and False
+            otherwise
+    # Imports
+        import pandas as pd
+    # Example
+        >>> parse_filename_test(x='test1.txt', search_list=['test', '1'])
+        is_test is_1
+        0 True True
+    """
+    # this line can be optimized by using a list comprehension instead of a for loop:
+    # qry = pd.DataFrame(dict(x=x))
+    # for term in search_list:
+    #     qry['is_{}'.format(term)] = x.str.lower().str.contains(term)
+    # optimized version:
     qry = pd.DataFrame(dict(x=x))
-    for term in search_list:
-        qry['is_{}'.format(term)] = x.str.lower().str.contains(term)
-    out = qry.drop('x', 1).any(axis=1)
+    qry = qry.assign(**{'is_{}'.format(term): x.str.lower().str.contains(term) for term in search_list})
+
+    # the optimized version works by creating a dictionary, where the keys are the column names
+    # and the values are the values for the columns. the dictionary is then passed to the `assign`
+    # function, which creates the columns in the dataframe.
+
+    # this line drops the column 'x' and
+    # returns True if any of the columns are True
+    out = qry.drop(columns='x').any(axis=1)
+
+    # return the output dataframe
     return(out)
 
 def get_page(sht):
