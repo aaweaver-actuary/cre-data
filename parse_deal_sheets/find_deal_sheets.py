@@ -277,174 +277,472 @@ def parse_filename_test(x : str = None, search_list : list = None) -> pd.DataFra
     # return the output dataframe
     return(out)
 
-def get_page(sht):
+def get_page(sht : wb.Sheet = None, max_columns : int = 32) -> list:
+    """
+    # Description
+        Given a sheet, return a list of lists, where each list is a row in the sheet
+    # Inputs
+        sht:  wb.Sheet, the sheet
+            default: None
+        max_columns: int, the maximum number of columns to read
+            default: 32
+    # Outputs
+        page: list, a list of lists, where each list is a row in the sheet
+    # Imports
+        import pandas as pd
+        import numpy as np
+    """
+    # initialize the output list
     page = []
+
+    # loop through the rows in the sheet
     for r in sht.rows():
+
+        # initialize the counter
         counter = 1
+
+        # initialize the row list
         row = []
+
+        # loop through the cells in the row
         for cell in r:
+
+            # increment the counter
             counter = counter + 1
-            if counter <= 32:
-    #             row.append(cell.v)
+
+            # if the counter is less than or equal to 32 (the maximum number of columns to read)
+            # is given by the input `max_columns`
+            if counter <= max_columns:
+
+                # if the value of the cell is not None
                 if cell.v is not None:
+                    # append the value of the cell to the row list
                     row.append(cell.v)
+
+        # append the row list to the output list
         page.append(row)
+
+    # return the output list
     return(page)
     
-def format_ds_data(x):
+def format_ds_data(x : str = None) -> str:
+    """
+    # Description
+        Given a value, return the value in a format suitable for the data source
+    # Inputs
+        x:  string, the value
+            default: None
+    # Outputs
+        out: string, the value in a format suitable for the data source
+    # Imports
+        import pandas as pd
+    # Example
+        >>> format_ds_data(x='test1.txt')
+        'test1.txt'
+    """
+    # first test if the value is a string
     if type(x)==str:
+
+        # if the value is a string, and the string is '0x7', return 0
         if x=='0x7':
             return(0)
+
+        # if the value is a string, and the string is empty, return 'N/A'
         elif x=='':
             return('N/A')
+
+        # if the value is a nonempty string that is not '0x7', return the string
+        # but strip any leading or trailing whitespace
         else:
             return(x.strip())
+
+    # if the value is a float
     elif type(x)==float:
+
+        # if the value is less than 1, round to 4 decimal places
         if x<1:
             return(round(x, 4))
+
+        # if the value is greater than or equal to 1, round to 3 decimal places
         else:
             return(round(x, 3))
+
+    # otherwise, return the value
     else:
         return(x)
         
-def parse_key_contract_terms(page):
+def parse_key_contract_terms(page : list = None, n_layers : int = 8) -> dict:
+    """
+    # Description
+        Given a list of lists, where each list is a row in the sheet, return a dictionary
+        with the key contract terms
+    # Inputs
+        page: list, a list of lists, where each list is a row in the sheet
+            default: None
+        n_layers: int, the number of layers in the sheet
+            default: 8
+    # Outputs
+        d: dict, a dictionary with the key contract terms
+    # Imports
+        import pandas as pd
+        import numpy as np
+    """
+    # initialize the output dictionary and the list of other terms
     d = {}
     others = []
-    for row in page:
-        if len(row)==0:
-            pass
-        else:
-            if row[0]=="Summary Economics":
-                break
-            elif row[0]=="Key Contract Terms":
-                pass
-            elif len(row)==1:
-                row[0] = row[0].replace("(%)", "%")
-                d[row[0].replace(' ', '_').lower()] = 'N/A'
-            elif row[1]=="CRM ID:":
-                row[0] = row[0].replace("(%)", "%")
-                d['client_name'] = row[0] if row[0] != '' else 'N/A'
-                d['crm_id'] = row[2] if row[2] != '' else 'N/A'
-                d['contract_name'] = row[4] if row[4] != '' else 'N/A'
-                d['mga'] = row[6] if row[6] != '' else 'N/A'
-                d['broker']=row[8] if row[8] != '' else 'N/A'
-            elif len(row)==9:
-                row[0] = row[0].replace("(%)", "%")
-                item = row[0].replace(' ', '_').lower()
-                d[item] = {}
-                for layer in range(8):
-                    d[item]['layer_{}'.format(layer+1)] = format_ds_data(row[1+layer])
-            elif len(row)==25:
-                row[0] = row[0].replace("(%)", "%")
-                ## these have two values, and an extra cell for a delimiter between the range
-                item1 = row[0][:row[0].find("/")].lower().replace(" ", "_")
-                item2 = row[0][1+row[0].find("/"):].lower().replace(" ", "_")
-                d[item1], d[item2] = {}, {}
-                for layer in range(8):
-                    d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][(3*layer)])
-                    d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][2+(3*layer)])
-            elif len(row)==17:
-                row[0] = row[0].replace("Brok on R/I Prem (%)", "Brok on RI Prem (%)")
-                row[0] = row[0].replace("(%)", "%")
+
+    # loop through the rows in the sheet
+    # this loop can be optimized by using a list comprehension instead of a for loop:
+    # for row in page:
+    #     if len(row)==0:
+    #         pass
+    #     else:
+    #         if row[0]=="Summary Economics":
+    #             break
+    #         elif row[0]=="Key Contract Terms":
+    #             pass
+    #         elif len(row)==1:
+    #             row[0] = row[0].replace("(%)", "%")
+    #             d[row[0].replace(' ', '_').lower()] = 'N/A'
+    #         elif row[1]=="CRM ID:":
+    #             row[0] = row[0].replace("(%)", "%")
+    #             d['client_name'] = row[0] if row[0] != '' else 'N/A'
+    #             d['crm_id'] = row[2] if row[2] != '' else 'N/A'
+    #             d['contract_name'] = row[4] if row[4] != '' else 'N/A'
+    #             d['mga'] = row[6] if row[6] != '' else 'N/A'
+    #             d['broker']=row[8] if row[8] != '' else 'N/A'
+    #         elif len(row)==9:
+    #             row[0] = row[0].replace("(%)", "%")
+    #             item = row[0].replace(' ', '_').lower()
+    #             d[item] = {}
+    #             for layer in range(8):
+    #                 d[item]['layer_{}'.format(layer+1)] = format_ds_data(row[1+layer])
+    #         elif len(row)==25:
+    #             row[0] = row[0].replace("(%)", "%")
+    #             ## these have two values, and an extra cell for a delimiter between the range
+    #             item1 = row[0][:row[0].find("/")].lower().replace(" ", "_")
+    #             item2 = row[0][1+row[0].find("/"):].lower().replace(" ", "_")
+    #             d[item1], d[item2] = {}, {}
+    #             for layer in range(8):
+    #                 d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][(3*layer)])
+    #                 d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][2+(3*layer)])
+    #         elif len(row)==17:
+    #             row[0] = row[0].replace("Brok on R/I Prem (%)", "Brok on RI Prem (%)")
+    #             row[0] = row[0].replace("(%)", "%")
                 
-                ## these have two values, but no delimeter
-                if row[0].find('/') != -1:
-                    item1 = row[0][:row[0].find("/")].lower().replace(" ", "_")
-                    item2 = row[0][1+row[0].find("/"):].lower().replace(" ", "_")
-                    d[item1], d[item2] = {}, {}
-                    for layer in range(8):
-                        d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][(2*layer)])
-                        d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][1+(2*layer)])
-                else:
-                    item1 = row[0].lower().replace(" ", "_") + '_basis'
-                    item2 = row[0].lower().replace(" ", "_") 
-                    d[item1], d[item2] = {}, {}
-                    for layer in range(8):
-                        d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][(2*layer)])
-                        d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][1+(2*layer)])
-            elif len(row)==10:
-                row[0] = row[0].replace("(%)", "%")
-                item = row[0].replace(' ', '_').lower()
-                d[item] = {}
-                for layer in range(8):
-                    d[item]['layer_{}'.format(layer+1)] = format_ds_data(row[1+layer])
-                d[item]['note'] = format_ds_data(row[9])
-            else:
-                others.append(row)
+    #             ## these have two values, but no delimeter
+    #             if row[0].find('/') != -1:
+    #                 item1 = row[0][:row[0].find("/")].lower().replace(" ", "_")
+    #                 item2 = row[0][1+row[0].find("/"):].lower().replace(" ", "_")
+    #                 d[item1], d[item2] = {}, {}
+    #                 for layer in range(8):
+    #                     d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][(2*layer)])
+    #                     d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][1+(2*layer)])
+    #             else:
+    #                 item1 = row[0].lower().replace(" ", "_") + '_basis'
+    #                 item2 = row[0].lower().replace(" ", "_") 
+    #                 d[item1], d[item2] = {}, {}
+    #                 for layer in range(8):
+    #                     d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][(2*layer)])
+    #                     d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][1+(2*layer)])
+    #         elif len(row)==10:
+    #             row[0] = row[0].replace("(%)", "%")
+    #             item = row[0].replace(' ', '_').lower()
+    #             d[item] = {}
+    #             for layer in range(8):
+    #                 d[item]['layer_{}'.format(layer+1)] = format_ds_data(row[1+layer])
+    #             d[item]['note'] = format_ds_data(row[9])
+    #         else:
+    #             others.append(row)
+    # this is the list comprehension version of the above for loop
+    
+    # loop over the rows in the sheet, skipping empty rows
+    for row in [row for row in page if len(row) != 0]:
+
+        # if the row is the summary economics row, break the loop
+        if row[0] == "Summary Economics":
+            break
+
+        # if the row is the key contract terms row, skip it
+        elif row[0] == "Key Contract Terms":
+            pass
+
+        # if the row is a single cell, replace the spaces with underscores and add it to the dictionary
+        elif len(row) == 1:
+
+            # if the first cell has a percent sign in parentheses, replace it with a percent sign
+            row[0] = row[0].replace("(%)", "%")
+
+            # add the key to the dictionary
+            d[row[0].replace(' ', '_').lower()] = 'N/A'
+
+        # if the second cell is CRM ID, then we are in the header row,
+        # and we need to add the client name, CRM ID, contract name, MGA,
+        # and broker to the dictionary
+        elif row[1] == "CRM ID:":
+
+            # if the first cell has a percent sign in parentheses, replace it with a percent sign
+            row[0] = row[0].replace("(%)", "%")
+
+            # add the client name, CRM ID, contract name, MGA, and broker to the dictionary
+            # if the value is empty, replace it with N/A
+            d['client_name'] = row[0] if row[0] != '' else 'N/A'
+            d['crm_id'] = row[2] if row[2] != '' else 'N/A'
+            d['contract_name'] = row[4] if row[4] != '' else 'N/A'
+            d['mga'] = row[6] if row[6] != '' else 'N/A'
+            d['broker'] = row[8] if row[8] != '' else 'N/A'
+        
+        # if the row has 9 cells, then we are in the summary economics row
+        elif len(row) == 9:
+
+            # if the first cell has a percent sign in parentheses, replace it with a percent sign
+            row[0] = row[0].replace("(%)", "%")
+
+            # replace the spaces with underscores and add the key to the dictionary
+            item = row[0].replace(' ', '_').lower()
+
+            # initialize the dictionary for the item
+            d[item] = {}
+
+            # loop over the layers and add the values to the dictionary (max 8 layers)
+            for layer in range(n_layers):
+
+                # if the value is empty, replace it with N/A
+                d[item]['layer_{}'.format(layer + 1)] = format_ds_data(row[1 + layer])
+
+        elif len(row) == 25:
+            # if the first cell has a percent sign in parentheses, replace it with a percent sign
+            row[0] = row[0].replace("(%)", "%")
+
+            ## these have two values, and an extra cell for a delimiter between the range
+            # if the first cell has a slash, then we have two values, so we need to split them
+
+            item1 = row[0][:row[0].find("/")].lower().replace(" ", "_")
+
+            # if the first cell has a slash, then we have two values, so we need to split them
+            item2 = row[0][1 + row[0].find("/"):].lower().replace(" ", "_")
+
+            # initialize the dictionaries for the items
+            d[item1], d[item2] = {}, {}
+
+            # loop over the layers and add the values to the dictionary (max `n_layers` layers)
+            for layer in range(n_layers):
+
+                # if the value is empty, replace it with N/A
+                d[item1]['layer_{}'.format(layer + 1)] = format_ds_data(row[1:][(3 * layer)])
+                d[item2]['layer_{}'.format(layer + 1)] = format_ds_data(row[1:][2 + (3 * layer)])
+
+        elif len(row) == 17:
+            row[0] = row[0].replace("Brok on R/I Prem (%)", "Brok on RI Prem (%)")
+            row[0] = row[0].replace("(%)", "%")
+
+            ## these have two values, but no delimeter
+            if row[0].find('/') != -1:
+
+                # if the first cell has a slash, then we have two values, so we need to split them
+                item1 = row[0][:row[0].find("/")].lower().replace(" ", "_")
+                item2 = row[0][1 + row[0].find("/"):].lower().replace(" ", "_")
+
+                # initialize the dictionaries for the items
+                d[item1], d[item2] = {}, {}
+                
+                # loop over the layers and add the values to the dictionary (max `n_layers` layers)
+                for layer in range(n_layers):
+                    d[item1]['layer_{}'.format(layer + 1)] = format_ds_data(row[1:][(2 * layer)])
+                    d[item2]['layer_{}'.format(layer + 1)] = format_ds_data(row[1:][1 + (2 * layer)])
+    
+    # add the other rows to the list of other rows
     out = dict(dat=d, others=others)
+
+    # return the dictionary
     return(out)
     
-def parse_summary_economics(page):
-    key_contract_terms = parse_key_contract_terms(page)
+def parse_summary_economics(page : list = None, n_layers : int = 8) -> dict:
+    """
+    # Description
+        This function parses the summary economics from the deal sheet.
+    # Inputs
+        page : list
+            The list of rows from the deal sheet.
+        n_layers : int
+            The number of layers in the deal sheet.
+            Default is 8.
+    # Outputs
+        out : dict
+            A dictionary containing the summary economics.
+    """
+    # initialize the dictionary with the client name, CRM ID, contract name, MGA, and broker
+    key_contract_terms = parse_key_contract_terms(page=page, n_layers=n_layers)
+
+    # initialize the dictionary
     d = key_contract_terms['dat']
+
+    # initialize the list of other rows
     others = []
+
+    # initialize the number of layers
     used_cols = list(key_contract_terms['dat'].keys())
+
+    # initialize the flag for the summary economics
     hit_sum_econ = False
+
+    # loop over the rows
     for row in page:
+
+        # if the row has 0 cells, then we are in the summary economics row, so
         if len(row)==0:
             pass
         else:
+
+            # if `hit_sum_econ` is `True`, then we are in the summary economics row
             if hit_sum_econ:
+
+                # if the first cell is a string
                 if type(row[0])==str:
+
+                    # if the first cell has a subject business UOBG
                     if row[0]=="Subject Business UOBG":
                         break
+
+                    # if the first cell is not "Subject Business UOBG"
                     else:
+                        # replace "Ult." with "Ult"
                         row[0] = row[0].replace('Ult.', 'Ult')
+                        
                         ## ROW LENGTH 10
-                        if len(row) in [10, 11]:
+                        # if the row has either 10 or 11 cells
+                        if len(row) in [n_layers+2, n_layers+3]:
+
+                            # remove the spaces and parentheses from the first cell
                             item = row[0].lower().replace(" ", "_").replace("_(1:", "_1:")
+
+                            # initialize the dictionary for the item
                             d[item] = {}
-                            for layer in range(8):
+
+                            # loop over the layers and add the values to the dictionary (max 8 layers)
+                            for layer in range(n_layers):
+
+                                # add the values to the dictionary
                                 d[item]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][layer])
-                            if len(row)==10:
+
+                            # if the row has exactly 10 cells, then the last cell is the combined value
+                            if len(row)==n_layers+2:
+
+                                # add the combined value to the dictionary
                                 d[item]['combined'] = format_ds_data(row[len(row)-1])
+
+                            # if the row has exactly 11 cells, then the last two cells are the capital and the ROE
                             else:
                                 d[item]['capital'] = format_ds_data(row[len(row)-2])
                                 d[item]['roe'] = format_ds_data(row[len(row)-1])
+                        
                         ## ROW LENGTH 18 & 19
-                        elif len(row) in [18, 19]:
+                        # if the row has either 18 or 19 cells
+                        elif len(row) in [(2*(n_layers)+2), (2*(n_layers)+3)]:
+
+                            # if the first cell has a slash
                             if row[0].find("/") != -1:
+
+                                # replace the spaces and parentheses in the first cell, to get the first item
                                 item1 = row[0][:row[0].find("/")].lower().replace(" ", "_").replace("_(1:", "_1:")
+
+                                # if the first item is either "Risk Limit Share" or "Occurrence Limit Share", then the second cell is
+                                # the "ROL" version of the first cell
                                 if item1 in ['risk_limit_share', 'occurrence_limit_share']:
                                     item2 = '{}_rol'.format(item1)
+
+                                # otherwise, the second cell is the first cell with the slash removed
+                                # and the spaces and parentheses replaced
                                 else:
                                     item2 = row[0][1+row[0].find("/"):].lower().replace(" ", "_").replace("_(1:", "_1:")
+                                
+                                # initialize the dictionaries for the items
                                 d[item1], d[item2] = {}, {}
-                                for layer in range(8):
+
+                                # loop over the layers and add the values to the dictionary (max `n_layers` layers)
+                                for layer in range(n_layers):
+
+                                    # add the values to the dictionary
                                     d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][2*layer])
                                     d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][1+(2*layer)])
-                                if len(row)==19:
+                                
+                                # if the row has exactly 19 cells, then the last two cells are the combined values
+                                # for the first and second items (over all layers)
+                                if len(row)==(2*(n_layers)+3):
                                     d[item1]['combined'] = format_ds_data(row[len(row)-2])
                                     d[item2]['combined'] = format_ds_data(row[len(row)-1])
+
+                                # if the row has exactly 18 cells, then the last cell is the combined value
+                                # for the first item (over all layers), and there is no combined value for
+                                # the second item
                                 else:
                                     d[item1]['combined'] = format_ds_data(row[len(row)-1])
+
+                            # if the first cell does not have a slash
                             else:
+
+                                # replace the spaces and parentheses in the first cell, to get the first item
                                 item1 = row[0][:row[0].find("/")].lower().replace(" ", "_").replace("_(1:", "_1:")
                                 item2 = '{}_pct'.format(item1)
                                 d[item1], d[item2] = {}, {}
-                                for layer in range(8):
+
+                                # loop over the layers and add the values to the dictionary (max `n_layers` layers)
+                                for layer in range(n_layers):
+
+                                    # add the values to the dictionary
                                     d[item1]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][2*layer])
                                     d[item2]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][1+(2*layer)])
-                                if len(row)==19:
+                                
+                                # if the row has exactly 19 cells, then the last two cells are the combined values
+                                if len(row)==(2*(n_layers)+3):
                                     d[item1]['combined'] = format_ds_data(row[len(row)-2])
                                     d[item2]['combined'] = format_ds_data(row[len(row)-1])
+                                
+                                # if the row does not have exactly 19 cells, then the last cell is the combined value
                                 else:
                                     d[item1]['combined'] = format_ds_data(row[len(row)-1])
-                        elif len(row)==9:
+                        
+                        # if the row has 9 cells, the first is the name of the item, and the rest are the values
+                        # for each layer (max 8 layers)
+                        elif len(row)==(n_layers + 1):
+
+                            # replace the spaces and parentheses in the first cell, to get the item
                             item = row[0].lower().replace(" ", "_").replace("_(1:", "_1:")
+                            
+                            # initialize the dictionary for the item
                             d[item] = {}
-                            for layer in range(8):
+
+                            # loop over the layers and add the values to the dictionary (max `n_layers` layers)
+                            for layer in range(n_layers):
+
+                                # add the values to the dictionary
                                 d[item]['layer_{}'.format(layer+1)] = format_ds_data(row[1:][layer])
+                        
+                        # if the row length is not yet given, then add it to the list of "others"
+                        # which will be returned at the end, to be parsed manually
                         else:
                             others.append(row)
+
+            # if we have hit the "Summary Economics" section, then continue
             else:
                 if row[0] == 'Summary Economics':
                     hit_sum_econ = True
                 else:
                     pass
+    # return the dictionary of data and the list of "others"
     return(dict(dat=d, others=others))
     
-def parse_subject_business_uobg(page):
+def parse_subject_business_uobg(page : list = None) -> dict:
+    """
+    # Description
+    Parses the "Subject Business" and "UOBG" sections of the DS page.
+
+    # Inputs
+    page : list
+        The list of rows from the DS page.
+
+
+    """
     key_contract_terms = parse_summary_economics(page)
     d = key_contract_terms['dat']
     others = []
@@ -515,7 +813,9 @@ def parse_subject_business_uobg(page):
                     pass
     return(dict(dat=d, others=others))
     
-def find_num_layers(d):
+def find_num_layers(d : dict = None) -> int:
+    """
+    """
     prem_series = pd.Series(d['ult_cin_re_premiu'])
     idx = prem_series.index.tolist()
     
