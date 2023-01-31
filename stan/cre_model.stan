@@ -24,7 +24,7 @@ data {
    vector<lower=1, upper=N_development_periods>[N] development_period;
 
    // estimated exposure for each treaty
-   vector<lower=0>[N] exposure;
+   vector<lower=0.001>[N] exposure;
 
    // treaty id for each data point
    vector<lower=1, upper=N_treaties>[N] treaty_id;
@@ -46,12 +46,14 @@ data {
    // matrix[N_groups, 3] prior_params;
 }
 transformed data {
-   // incremental data
-   vector[N] incremental_paid_loss = cum_to_inc(N, cumulative_paid_loss, treaty_id);
-   // vector[N] incremental_reported_loss = cum_to_inc(N, cumulative_reported_loss, treaty_id);
+   // incremental data (use `inc_loss(int n, vector dev_age, vector gp, vector cum)` function
+   // from `clark_model_functions.stan` to calculate incremental paid loss and incremental reported loss)
+   vector[N] incremental_paid_loss = inc_loss(N, development_period, treaty_id, cumulative_paid_loss);
+   // vector[N] incremental_reported_loss = inc_loss(N, development_period, treaty_id, cumulative_reported_loss);
 
    // incremental loss per exposure
    vector[N] incremental_paid_loss_per_exposure = incremental_paid_loss ./ exposure;
+   // vector[N] incremental_reported_loss_per_exposure = incremental_reported_loss ./ exposure;
 
    // prior log parameters
    // matrix[N_groups, 3] prior_log_params = log(prior_params);
@@ -68,23 +70,23 @@ parameters {
    // parameters are nonnegative and skewed to the right, so we use a lognormal distribution
    // only two parameters: warp and theta
    vector[2] total_log_params;
-   matrix[N_groups, 2] group_log_params;
+   // matrix[N_groups, 2] group_log_params;
 
    // sigmas for the log of the total warp and total theta
    vector<lower=0>[2] total_log_param_sigmas;
-   matrix<lower=0>[N_groups, 2] log_param_sigmas;
+   // matrix<lower=0>[N_groups, 2] log_param_sigmas;
 
    // correlation parameter for the log of total warp and total theta
    real<lower=-1, upper=1> total_rho;
-   vector<lower=-1, upper=1>[N_groups] rho;
+   // vector<lower=-1, upper=1>[N_groups] rho;
 
    // total sigma is the standard deviation of the incremental loss per exposure
    real<lower=0> total_sigma;
-   vector<lower=0>[N_groups] group_sigma;
+   // vector<lower=0>[N_groups] group_sigma;
 
    // skewness parameter for the incremental loss per exposure
    real total_loss_skew;
-   vector[N_groups] group_loss_skew;
+   // vector[N_groups] group_loss_skew;
 
    // ==============================================================================
    // leaving this out for now -- will hopefully add back in later =================
@@ -96,7 +98,7 @@ transformed parameters {
    // these are the parameters that are used in the model
    // total parameters
    vector[2] total_params = exp(total_log_params);
-   matrix[N_groups, 2] group_params = exp(group_log_params);
+   // matrix[N_groups, 2] group_params = exp(group_log_params);
 
    // variance-covariance matrix for the log of total warp and total theta, for the total parameters
    matrix[3, 3] total_log_param_var_cov_matrix;
@@ -106,13 +108,13 @@ transformed parameters {
    total_log_param_var_cov_matrix[2, 1] = total_rho * total_log_param_sigmas[1] * total_log_param_sigmas[2]; // covariance of log of total warp and log of total theta (off-diagonal element)
 
    // variance-covariance matrix for the log of total warp and total theta, for the group parameters
-   matrix[N_groups, 3, 3] log_param_var_cov_matrix;
-   for(g in 1:N_groups){
-      log_param_var_cov_matrix[g, 1, 1] = log_param_sigmas[g, 1] * log_param_sigmas[g, 1]; // variance of log of total warp (diagonal element)
-      log_param_var_cov_matrix[g, 2, 2] = log_param_sigmas[g, 2] * log_param_sigmas[g, 2]; // variance of log of total theta (diagonal element)
-      log_param_var_cov_matrix[g, 1, 2] = rho[g] * log_param_sigmas[g, 1] * log_param_sigmas[g, 2]; // covariance of log of total warp and log of total theta (off-diagonal element)
-      log_param_var_cov_matrix[g, 2, 1] = rho[g] * log_param_sigmas[g, 1] * log_param_sigmas[g, 2]; // covariance of log of total warp and log of total theta (off-diagonal element)
-   }
+   // matrix[N_groups, 3, 3] log_param_var_cov_matrix;
+   // for(g in 1:N_groups){
+   //    log_param_var_cov_matrix[g, 1, 1] = log_param_sigmas[g, 1] * log_param_sigmas[g, 1]; // variance of log of total warp (diagonal element)
+   //    log_param_var_cov_matrix[g, 2, 2] = log_param_sigmas[g, 2] * log_param_sigmas[g, 2]; // variance of log of total theta (diagonal element)
+   //    log_param_var_cov_matrix[g, 1, 2] = rho[g] * log_param_sigmas[g, 1] * log_param_sigmas[g, 2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+   //    log_param_var_cov_matrix[g, 2, 1] = rho[g] * log_param_sigmas[g, 1] * log_param_sigmas[g, 2]; // covariance of log of total warp and log of total theta (off-diagonal element)
+   // }
 
    // skewness parameters first total, then by group, where the group parameters
    // start with the total parameters and then are adjusted by the group skewness
@@ -120,8 +122,8 @@ transformed parameters {
 
    real a = lognormal_rng(0, 1);
    real b = lognormal_rng(0, 1);
-   vector[N_groups] a_gp = normal_rng(a, 0.1, N_groups);
-   vector[N_groups] b_gp = normal_rng(b, 0.1, N_groups);
+   // vector[N_groups] a_gp = normal_rng(a, 0.1, N_groups);
+   // vector[N_groups] b_gp = normal_rng(b, 0.1, N_groups);
    
 
    // ==============================================================================
@@ -131,15 +133,18 @@ transformed parameters {
 
    // use this function to calculate mean absolute deviation:
    // mean_absolute_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss)
-   real mean_abs_error = mean_absolute_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+   real mean_abs_error_paid = mean_absolute_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+   // real mean_abs_error_incurred = mean_absolute_error_cum_loss(N, treaty_id, incremental_incurred_loss_per_exposure, exposure, cumulative_incurred_loss);
 
    // use the mean square error function (don't name it the same thing as the function):
    // real mean_square_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss)
-   real mean_square_error = mean_square_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+   real mean_square_error_paid = mean_square_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+   // real mean_square_error_incurred = mean_square_error_cum_loss(N, treaty_id, incremental_incurred_loss_per_exposure, exposure, cumulative_incurred_loss);
 
    // use the mean asymmetric error function (don't name it the same thing as the function):
    // real mean_asymmetric_error_cum_loss(int N, vector treaty_id, vector incremental_loss_per_exposure, vector exposure, vector cumulative_loss)
-   real mean_asymmetric_error = mean_asymmetric_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+   real mean_asymmetric_error_paid = mean_asymmetric_error_cum_loss(N, treaty_id, incremental_paid_loss_per_exposure, exposure, cumulative_paid_loss);
+   // real mean_asymmetric_error_incurred = mean_asymmetric_error_cum_loss(N, treaty_id, incremental_incurred_loss_per_exposure, exposure, cumulative_incurred_loss);
 
 
 
@@ -158,7 +163,7 @@ model{
    // correlation parameter is selected from the interval [-1, 1] 
    // (this is the support of the bivariate normal distribution)
    total_rho ~ uniform(-1, 1);
-   rho ~ uniform(-1, 1);
+   // rho ~ uniform(-1, 1);
 
    // sigmas for the log of total warp and total theta are selected from a cauchy distribution
    // with mean zero and standard deviation 1
@@ -166,14 +171,14 @@ model{
    // and the cauchy distribution is the conjugate prior for the log of a nonnegative skewed
    // to the right distribution
    total_log_param_sigmas ~ cauchy(0, 1);
-   log_param_sigmas ~ cauchy(0, 1);
+   // log_param_sigmas ~ cauchy(0, 1);
    
    // log parameters are drawn from a multivariate normal distribution with mean 
    // equal to the prior log parameters `prior_log_params`
    // and variance-covariance matrix `log_param_var_cov_matrix`
    // total_log_params ~ multi_normal(prior_log_params, log_param_var_cov_matrix);
    total_log_params ~ multi_normal(prior_log_params, total_log_param_var_cov_matrix);
-   group_log_params ~ multi_normal(prior_log_params, log_param_var_cov_matrix);
+   // group_log_params ~ multi_normal(prior_log_params, log_param_var_cov_matrix);
 
 
    // ==============================================================================
@@ -208,7 +213,7 @@ model{
 
    // a and b are hyperparameters that force the distribution to be bounded between -1 and 1
    // a_gp and b_gp are terms that are added to a and b to allow the group skewness to vary by group
-   group_loss_skew ~ beta(a_gp, b_gp);
+   // group_loss_skew ~ beta(a_gp, b_gp);
 
    // the incremental paid loss per exposure is selected from an exponential modified normal distribution
    // with mean equal to the estimate of incremental loss based on the benktander ultimate
