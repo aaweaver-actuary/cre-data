@@ -1,8 +1,3 @@
-functions{
-   #include data_manipulation_functions.stan
-   #include clark_model_functions.stan
-   #include loss_functions.stan
-}
 data {
    // number of data points
    int<lower=1> N;
@@ -17,10 +12,10 @@ data {
    int<lower=1> N_development_periods;
 
    // number of modelling groups
-   int<lower=1> N_groups;
+   // int<lower=1> N_groups;
 
    // number of lines of business
-   int<lower=1> N_lines_of_business;
+   // int<lower=1> N_lines_of_business;
 
    // treaty period
    vector<lower=1, upper=N_treaty_periods>[N] treaty_period;
@@ -35,10 +30,10 @@ data {
    vector<lower=1, upper=N_treaties>[N] treaty_id;
 
    // modelling group id for each data point
-   vector<lower=1, upper=N_groups>[N] group_id;
+   // vector<lower=1, upper=N_groups>[N] group_id;
 
    // line of business id for each data point
-   vector<lower=1, upper=N_lines_of_business>[N] line_of_business_id;
+   // vector<lower=1, upper=N_lines_of_business>[N] line_of_business_id;
 
    // paid loss for each treaty period - development period pair
    vector[N] cumulative_paid_loss;
@@ -48,7 +43,7 @@ data {
 
    // matrix of prior estimates of the warp, theta, and elr parameters
    // (in that order) for the cumulative paid loss, one for each group
-   matrix[N_groups, 3] prior_params;
+   // matrix[N_groups, 3] prior_params;
 }
 transformed data {
    // incremental data
@@ -59,7 +54,7 @@ transformed data {
    vector[N] incremental_paid_loss_per_exposure = incremental_paid_loss ./ exposure;
 
    // prior log parameters
-   matrix[N_groups, 3] prior_log_params = log(prior_params);
+   // matrix[N_groups, 3] prior_log_params = log(prior_params);
 
    // number of calendar_periods
    // int<lower=1> N_calendar_periods = N_treaty_periods * N_development_periods;
