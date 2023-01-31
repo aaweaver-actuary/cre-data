@@ -231,6 +231,9 @@ def get_all_files(folder : str = None) -> pd.DataFrame:
 
     # filter out files with some variation of the word "deal"
     deal_filter = out.file.str.lower().str.contains('deal')
+
+    # filter out files with some variation of the word "final"
+    final_filter = out.file.str.lower().str.contains('final')
     
     # return the filtered dataframe
     return(out)
@@ -1108,4 +1111,4 @@ def main():
                                     ('0' if s < 10 else '') + str(s))
     d['df'].to_excel('./ds_data_{}.xlsx'.format(ts))
     
-main()    
+main()
