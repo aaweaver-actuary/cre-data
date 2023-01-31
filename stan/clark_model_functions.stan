@@ -736,16 +736,24 @@
       // initialize the prior percent of ultimate loss
       vector[n] prior_G;
 
-      // calculate the prior percent of ultimate loss using `prior_value(int n, vector dev_age, vector gp, vector x)`
-      prior_G = prior_value(n, x, gp, G);
+      // initialize a vector of ultimates for each row in the data, based on 
+      // the corresponding group in the data
+      vector[n] ult;
 
       // calculate the Chain Ladder ultimate
       cl_ult = chain_ladder_ultimate(n, n_gp, inc_loss, gp, x, G);
 
-      // calculate the chain ladder mean incremental losses
+      // calculate the `ult` vector
       for(i in 1:n) {
-         inc_mean[i] = cl_ult[gp[i]] * (G[i] - prior_G[i]);
+         ult[i] = cl_ult[gp[i]];
       }
+
+      // calculate the prior percent of ultimate loss using `prior_value(int n, vector dev_age, vector gp, vector x)`
+      prior_G = prior_value(n, x, gp, G);
+
+      // calculate the chain ladder mean incremental losses
+      // using the `general_clark_mean(int n, vector ultimate, vector G_diff)` function
+      inc_mean = general_clark_mean(n, ult, G - prior_G);
 
       // calculate the chain ladder mean cumulative losses using `cum_loss(int n, vector dev_age, vector gp, vector inc)`
       cl_mean = cum_loss(n, x, gp, inc_mean);
@@ -757,166 +765,130 @@
    /**
       * @title Cape Cod Mean of triangle cell in Clark model
       * @description Calculate the mean of a triangle cell in the Clark model. The calculation 
-      
-      
-
-
-
-   /**
-      * @title Prior mean
-      * @description Calculate the prior mean for each treaty. The prior mean is 0 with probability
-      * `zero_prob`. The prior mean is nonzero with probability `1 - zero_prob`. If the prior mean is
-      * nonzero, it is equal to the Benktander ultimate multiplied by the difference between the
-      * current age and the prior age. The current age is the age of the treaty at the current
-      * development period. The prior age is the age of the treaty at the prior development period.
-      * @param n The number of data points.
-      * @param benktander_ult A vector of length `n` with Benktander ultimate losses by treaty.
-      * @param G_current A vector of length `n` with G factors by treaty, calculated at the current age.
-      * @param G_prior A vector of length `n` with G factors by treaty, calculated at the prior age.
-      * @param total_params A vector of length 2 with the total parameters.
-      * @param zero_prob A real number between 0 and 1 representing the probability that the prior mean is 0.
-      * @return A vector of length `n` of prior means by treaty.
-      * @examples
-      * > prior_mean(5, c(10, 10, 10, 10, 10), c(0.5, 0.5, 0.5, 0.5, 0.5), c(1, 1, 1, 1, 1), c(0, 0, 0, 0, 0), c(1, 1), 0.5)
+      * is the same as the Chain Ladder mean, except that the Cape Cod ultimate is used instead
+      * of the Chain Ladder ultimate. See the documentation for the `chain_ladder_mean` function
+      * for more details.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts.
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param x A vector of ages.
+      * @param cum_loss A vector of cumulative losses by treaty and age. Will need to be converted
+      * to incremental losses for the mean, using the `inc_loss(int n, vector dev_age, vector gp, vector cum)`
+      * function.
+      * @param cum_exposure A vector of cumulative exposure by treaty and age. Needed to calculate
+      * the ELR.
+      * @param G A vector with the percent of ultimate loss corresponding to each age in x.
+      * @return A vector of length `n` with the mean of each triangle cell in the Clark model.
+      * This mean is the Cape Cod ultimate for the group corresponding to a row in the data
+      * multiplied by the difference between the current age and the prior age.
       */
-   vector prior_mean(int n, vector benktander_ult, vector G_current, vector G_prior, vector total_params) {
-      // initialize a vector of length n to hold the prior mean
-      vector[n] prior_mean;
+   vector cape_cod_mean(int n, int n_gp, int[] gp, vector x, vector cum_loss, vector cum_exposure, vector G) {
+      // initialize the mean
+      vector[n] cc_mean;
 
-      // loop through the data
-      for (i in 1:n) {
+      // initialize the incremental mean
+      vector[n] inc_mean;
 
-         // calculate the prior mean
-         prior_mean[i] = benktander_ult[i] * (G_current[i] - G_prior[i]);
+      // initialize the incremental losses
+      vector[n] inc_loss;
+
+      // initialize the Cape Cod ultimate
+      vector[n_gp] cc_ult;
+
+      // initialize the prior percent of ultimate loss
+      vector[n] prior_G;
+
+      // initialize a vector of ultimates for each row in the data, based on 
+      // the corresponding group in the data
+      vector[n] ult;
+
+      // calculate the Cape Cod ultimate
+      cc_ult = cape_cod_ultimate(n, n_gp, cum_loss, cum_exposure, gp, x, G);
+
+      // calculate the `ult` vector
+      for(i in 1:n) {
+         ult[i] = cc_ult[gp[i]];
       }
 
-      // return the prior mean
-      return prior_mean;
-   }
-      
-   /**
-      * @title Prior mean
-      * @description Calculate the prior mean for each treaty. The prior mean is 0 with probability
-      * `zero_prob`. The prior mean is nonzero with probability `1 - zero_prob`. If the prior mean is
-      * nonzero, it is equal to the Benktander ultimate multiplied by the difference between the
-      * current age and the prior age. The current age is the age of the treaty at the current
-      * development period. The prior age is the age of the treaty at the prior development period.
-      * @param n The number of data points.
-      * @param treaty_id A vector of length `n` with treaty IDs.
-      * @param development_period A vector of length `n` with development periods.
-      * @param cumulative_loss A vector of length `n` with cumulative losses by treaty.
-      * @param exposure A vector of length `n` with exposures by treaty.
-      * @param total_params A vector of length 2 with the total parameters.
-      * @param zero_prob A real number between 0 and 1 representing the probability that the prior mean is 0.
-      * @return A vector of length `n` of prior means by treaty.
-      * @examples
-      * > prior_mean_from_data(5, c(1, 1, 1, 2, 2), c(1, 2, 3, 1, 2), c(10, 10, 10, 10, 10), c(1, 1), 0.5)
-      */
-   vector prior_mean_from_data(int n, vector treaty_id, vector development_period, vector cumulative_loss, vector exposure, vector total_params, real zero_prob) {
-      // initialize a vector of length n to hold the prior mean
-      vector[n] temp_prior_mean;
+      // calculate the prior percent of ultimate loss using `prior_value(int n, vector dev_age, vector gp, vector x)`
+      prior_G = prior_value(n, x, gp, G);
 
-      // initialize vectors of length n to hold `prior_mean` inputs
-      vector[n] temp_benktander_ult;
-      vector[n] G_current;
-      vector[n] G_prior;
-      
-      // calculate G_current using the G_loglogistic function defined above
-      G_current = G_loglogistic(n, development_period, total_params[1], total_params[2]);
+      // calculate the Cape Cod mean incremental losses
+      // using the `general_clark_mean(int n, vector ultimate, vector G_diff)` function
+      inc_mean = general_clark_mean(n, ult, G - prior_G);
 
-      // calculate G_prior using the G_loglogistic function defined above, but with the development period
-      // that is calculated from the function `prior_dev_period` defined above
-      G_prior = G_loglogistic(n, prior_dev_period(n, treaty_id, development_period), total_params[1], total_params[2]);
+      // calculate the Cape Cod mean cumulative losses using `cum_loss(int n, vector dev_age, vector gp, vector inc)`
+      cc_mean = cum_loss(n, x, gp, inc_mean);
 
-      // calculate benktander_ult using the benktander_ultimate function defined above
-      temp_benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, development_period, total_params);
-
-      // calculate temp_prior_mean using the prior_mean function defined above
-      temp_prior_mean = prior_mean(n, temp_benktander_ult, G_current, G_prior, total_params);
-
-      // return the prior mean
-      return temp_prior_mean;
-   }      
-
-   // convenience function that calculates `prior_mean_from_data` for the case where `zero_prob` is 0
-   // inputs should be `n`, `treaty_id`, `development_period`, `cumulative_loss`, `exposure`, `total_params`
-   // all inputs are vectors of length `n` besides `total_params`, which is a vector of length 2 
-   // also includes `treaty_id` input
-   /**
-      * @title Prior mean
-      * @description Calculate the prior mean for each treaty. The prior mean is 0 with probability
-      * `zero_prob`. The prior mean is nonzero with probability `1 - zero_prob`. If the prior mean is
-      * nonzero, it is equal to the Benktander ultimate multiplied by the difference between the
-      * current age and the prior age. The current age is the age of the treaty at the current
-      * development period. The prior age is the age of the treaty at the prior development period.
-      * @param n The number of data points.
-      * @param treaty_id A vector of length `n` with treaty IDs.
-      * @param development_period A vector of length `n` with development periods.
-      * @param cumulative_loss A vector of length `n` with cumulative losses by treaty.
-      * @param exposure A vector of length `n` with exposures by treaty.
-      * @param total_params A vector of length 2 with the total parameters.
-      * @return A vector of length `n` of prior means by treaty.
-      * @examples
-      * > prior_mean_from_data_nozero(5, c(1, 1, 1, 2, 2), c(1, 2, 3, 1, 2), c(10, 10, 10, 10, 10), c(1, 1), c(1, 1))
-      */
-   vector prior_mean_from_data_nozero(int n, vector treaty_id, vector development_period, vector cumulative_loss, vector exposure, vector total_params) {
-      // initialize a vector of length n to hold the prior mean
-      vector[n] temp_prior_mean;
-
-      // initialize vectors of length n to hold `prior_mean` inputs
-      vector[n] temp_benktander_ult;
-      vector[n] G_current;
-      vector[n] G_prior;
-      
-      // calculate G_current using the G_loglogistic function defined above
-      G_current = G_loglogistic(n, development_period, total_params[1], total_params[2]);
-
-      // calculate G_prior using the G_loglogistic function defined above, but with the development period
-      // that is calculated from the function `prior_dev_period` defined above
-      G_prior = G_loglogistic(n, prior_dev_period(n, treaty_id, development_period), total_params[1], total_params[2]);
-
-      // calculate benktander_ult using the benktander_ultimate function defined above
-      temp_benktander_ult = benktander_ultimate_from_data(n, cumulative_loss, exposure, development_period, total_params);
-
-      // calculate as the estimated Benktander ultimate multiplied by the difference between the 
-      // percent of ultimate loss at the current development period and the percent of ultimate loss
-      // at the prior development period
-      temp_prior_mean = temp_benktander_ult .* (G_current - G_prior);
-
-      // return the prior mean
-      return temp_prior_mean;
+      // return the mean
+      return cc_mean;
    }
 
-   // function that takes n, incremental loss per exposure and exposure and returns the cumulative paid loss
-   // first multiply incr loss per exposure by exposure to get incremental loss
-   // then calculate cumulative loss by passing to the inc_to_cum function defined above
    /**
-        * @title Cumulative loss
-        * @description Calculate the cumulative loss for each treaty. The cumulative loss is calculated
-        * by multiplying the incremental loss per exposure by the exposure and then summing the incremental
-        * losses by treaty.
-        * @param n The number of data points.
-        * @param treaty_id A vector of length `n` with treaty IDs.
-        * @param incremental_loss_per_exposure A vector of length `n` with incremental losses per exposure.
-        * @param exposure A vector of length `n` with exposures by treaty.
-        * @return A vector of length `n` of cumulative losses by treaty.
-        * @examples
-        * > modeled_cumulative_loss(5, c(1, 1, 1, 2, 2), c(1, 1, 1, 1, 1), c(1, 2, 3, 4, 5))
-        * [1] 1 3 6 4 9
-        */
-    vector modeled_cumulative_loss(int n, vector treaty_id, vector incremental_loss_per_exposure, vector exposure) {
-        // initialize a vector of length n to hold the cumulative loss
-        vector[n] cumulative_loss;
-    
-        // initialize a vector of length n to hold the incremental loss
-        vector[n] incremental_loss;
-    
-        // calculate incremental loss by multiplying incremental loss per exposure by exposure
-        incremental_loss = incremental_loss_per_exposure * exposure;
-    
-        // calculate cumulative loss by passing incremental loss to the inc_to_cum function defined above
-        cumulative_loss = inc_to_cum(n, treaty_id, incremental_loss);
-    
-        // return the cumulative loss
-        return cumulative_loss;
-    }
+      * @title Benktander Mean of triangle cell in Clark model
+      * @description Calculate the mean of a triangle cell in the Clark model. The calculation
+      * is the same as the Chain Ladder mean, except that the Benktander ultimate is used instead
+      * of the Chain Ladder ultimate. See the documentation for the `chain_ladder_mean` function
+      * for more details on this, and the documentation for the `benktander_ultimate` function for
+      * more details on the Benktander ultimate.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts.
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param x A vector of ages.
+      * @param cum_loss A vector of cumulative losses by treaty and age. Will need to be converted
+      * to incremental losses for the mean, using the `inc_loss(int n, vector dev_age, vector gp, vector cum)`
+      * function.
+      * @param cum_exposure A vector of cumulative exposure by treaty and age. Needed to calculate
+      * the ELR.
+      * @param G A vector with the percent of ultimate loss corresponding to each age in x.
+      * @return A vector of length `n` with the mean of each triangle cell in the Clark model.
+      * This mean is the Benktander ultimate for the group corresponding to a row in the data
+      * multiplied by the difference between the current age and the prior age.
+      */
+   vector benktander_mean(int n, int n_gp, int[] gp, vector x, vector cum_loss, vector cum_exposure, vector G) {
+      // initialize the mean
+      vector[n] b_mean;
+
+      // initialize the incremental mean
+      vector[n] inc_mean;
+
+      // initialize the incremental losses
+      vector[n] inc_loss;
+
+      // initialize the Benktander ultimate
+      vector[n_gp] b_ult;
+
+      // initialize the prior percent of ultimate loss
+      vector[n] prior_G;
+
+      // initialize a vector of ultimates for each row in the data, based on 
+      // the corresponding group in the data
+      vector[n] ult;
+
+      // calculate the Benktander ultimate
+      b_ult = benktander_ultimate(n, n_gp, cum_loss, cum_exposure, gp, x, G);
+
+      // calculate the `ult` vector
+      for(i in 1:n) {
+         ult[i] = b_ult[gp[i]];
+      }
+
+      // calculate the prior percent of ultimate loss using `prior_value(int n, vector dev_age, vector gp, vector x)`
+      prior_G = prior_value(n, x, gp, G);
+
+      // calculate the Benktander mean incremental losses
+      // using the `general_clark_mean(int n, vector ultimate, vector G_diff)` function
+      inc_mean = general_clark_mean(n, ult, G - prior_G);
+
+      // calculate the Benktander mean cumulative losses using `cum_loss(int n, vector dev_age, vector gp, vector inc)`
+      b_mean = cum_loss(n, x, gp, inc_mean);
+
+      // return the mean
+      return b_mean;
+   }
+
+   
