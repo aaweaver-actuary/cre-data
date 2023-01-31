@@ -890,5 +890,3 @@
       // return the mean
       return b_mean;
    }
-
-   
