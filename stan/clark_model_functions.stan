@@ -1,3 +1,142 @@
+   /** 
+      * @title Prior age lookup
+      * @description This function looks up the value corresponding to the prior age for a given age and group.
+      * The prior age is the age that immediately precedes the given age. If the given age is the first age in
+      * the development period, the prior age is the first age in the development period. If the given age is
+      * the first age in the development period for a given group, the prior age is the first age in the development
+      * period for that group. If the given age is the first age in the development period for a given group, and
+      * the first age in the development period for that group is the first age in the development period, the
+      * prior age is the first age in the development period. If the groups are not the same, the prior age is
+      * the first age in the development period for that group.
+      * @param n Integer number of rows in the data.
+      * @param dev_age A vector of development ages.
+      * @param gp A vector of group numbers. This is used to calculate the prior age by group. Only look up the
+      * prior age if the group number is the same.
+      * @param x The vector of values to look up the prior value for.
+      * @return A vector of prior values.
+      * @examples
+      * > n=10
+      * > dev_age=(1,2,3,4,1,2,3,1,2,1)
+      * > gp=(1,1,1,1,2,2,2,3,3,4)
+      * > x=(1,2,3,4,5,6,7,8,9,10)
+      * > data.frame(gp=gp, dev_age=dev_age, x=x, prior_x=prior_value(n, dev_age, gp, x))
+      *     gp    dev_age  x  prior_x
+      * 1   1     1        1  0
+      * 2   1     2        2  1
+      * 3   1     3        3  2
+      * 4   1     4        4  3
+      * 5   2     1        5  0
+      * 6   2     2        6  5
+      * 7   2     3        7  6
+      * 8   3     1        8  0
+      * 9   3     2        9  8
+      * 10  4     1       10  0
+      * note that in rows 1, 5, and 8, the age is the first age in the development period, so the prior value is 0
+      * which indicates that there is no prior value for that age
+      */
+   vector prior_value(int n, vector dev_age, vector gp, vector x) {
+      // initialize the vector of prior values (sorted and original order)
+      vector[n] out;
+      vector[n] out_sorted;
+
+      // capture the current order of the data
+      vector[n] cur_order = 1:n;
+
+      // sort the data by group number and development age (ascending) so
+      // that the prior value can be calculated by group and age in a loop
+      vector[n] sorted_order = sort_indices_2d(gp, dev_age);
+      vector[n] sorted_dev_age = dev_age[sorted_order];
+      vector[n] sorted_gp = gp[sorted_order];
+      vector[n] sorted_x = x[sorted_order];
+
+      // loop through the data and calculate the prior value
+      for(i in 1:n){
+         
+         // if the age is the first age in the data, the prior value is 0
+         if(sorted_dev_age[i] == 1){
+            out_sorted[i] = 0;
+         }
+         
+         // if the group number is the same as the previous age, look up the value at the previous age
+         else if(sorted_gp[i] == sorted_gp[i-1]){
+            out_sorted[i] = sorted_x[i-1];
+         } 
+         
+         // otherwise, it is not the first row in the data, and the group number
+         // is not the same as the previous age, so the prior value is 0
+         // indicating that there is no prior value for that age
+         else{
+            out_sorted[i] = 0;
+         }
+      }
+
+      // return the prior value in the original order of the data
+      out = out_sorted[cur_order];
+      return out;
+   }
+   
+   /**
+      * @title Cumulative Loss Calculation
+      * @description Calculate the cumulative loss by group and age. This is the cumulative loss
+      * for a given age, calculated as the sum of the incremental losses up to that age. The first age
+      * in the development period is assumed to be `1`, and the cumulative loss for that age is simply
+      * the incremental loss at that age. The cumulative loss for the second age is the sum of the
+      * incremental loss at that age and the cumulative loss at the first age. The cumulative loss for    
+      * the third age is the sum of the incremental loss at that age and the cumulative loss at the
+      * second age, and so on.
+      * @param n Integer number of rows in the data.
+      * @param dev_age A vector of development ages.
+      * @param gp A vector of group numbers. This is used to calculate the cumulative loss by group. Only add
+      * the incremental loss at the previous age if the group number is the same.
+      * @param inc A vector of incremental whatevers.
+      * @return A vector of cumulative losses.
+      * @examples
+      * > cum_loss(10, (1,2,3,4,1,2,3,1,2,1), (1,1,1,1,2,2,2,3,3,4), (1,3,5,7,9,11,13,15,17,19))
+      * [1]  1  4  9 16 25 36 49 64 81 100
+      * see the example for the `inc_loss` function for an explanation of the results
+      */
+   vector cum_loss(int n, vector dev_age, vector gp, vector inc) {
+      // initialize the vector of cumulative losses (sorted and original order)
+      vector[n] out;
+      vector[n] out_sorted;
+
+      // capture the current order of the data
+      vector[n] cur_order = 1:n;
+
+      // sort the data by group number and development age (ascending) so
+      // that the cumulative loss can be calculated by group and age in a loop
+      vector[n] sorted_order = sort_indices_2d(gp, dev_age);
+      vector[n] sorted_dev_age = dev_age[sorted_order];
+      vector[n] sorted_gp = gp[sorted_order];
+      vector[n] sorted_inc = inc[sorted_order];
+
+      // loop through the data and calculate the cumulative loss
+      for(i in 1:n){
+         
+         // the first age in the development period is assumed to be 1, and the cumulative loss for that age
+         // is simply the incremental loss at that age
+         if(i==1){   
+            out_sorted[i] = sorted_inc[i];
+         }
+         
+         // if the group number is the same as the previous age, add the incremental loss at the previous age
+         // to the incremental loss at the current age
+         else if(sorted_gp[i] == sorted_gp[i-1]){
+            out_sorted[i] = sorted_inc[i] + out_sorted[i-1];
+         } 
+         
+         // otherwise, just use the incremental loss at the current age
+         else{
+            out_sorted[i] = sorted_inc[i];
+         }
+      }
+
+      // return the cumulative loss in the original order of the data
+      out = out_sorted[cur_order];
+      return out;
+   }
+  
+  
   /**
       * @title Incremental Loss Calculation
       * @description Calculate the incremental loss by group and age. This is the incremental loss
@@ -526,6 +665,33 @@
       
       // return the Benktander ultimate
       return benktander;
+   } 
+
+   /** 
+      * @title Calculation mean of a triangle cell in the Clark model
+      * @description Calculate the mean of a triangle cell in the Clark model. This is a 
+      * general function that is meant to be called by other functions. The mean is the
+      * ultimate loss for the group corresponding to the row, multiplied by the difference
+      * between the current and prior percent of ultimate. Both the ultimate loss and the 
+      * percent of ultimate difference are given by the `ultimate` and `G_diff` vectors,
+      * respectively.
+      * @param n The number of rows in the data.
+      * @param ultimate A vector of ultimate losses by cohort.
+      * @param G_diff A vector of the difference between the current and prior
+      * percent of ultimate.
+      * @return A vector of the mean of a triangle cell in the Clark model.
+      */
+   vector general_clark_mean(int n, vector ultimate, vector G_diff) {
+      // initialize the mean
+      vector[n] general_clark_mean;
+
+      // calculate the mean = (ultimate loss) * (difference between current and prior percent of ultimate)
+      for(i in 1:n) {
+         general_clark_mean[i] = ultimate[i] * G_diff[i];
+      }
+
+      // return the mean
+      return general_clark_mean;
    }
 
    
@@ -537,11 +703,63 @@
       * The current age is the age of the treaty at the current development period. The prior age is
       * the age of the treaty at the closest prior development period, unless the current age is the 
       * first age, in which case the prior age is 0, and so G(prior age) = 0. Will need the parameters
-      * `n`, `n_gp`, `cum_loss`, `gp`, `x`, and `G` to calculate the Chain Ladder ultimate.
+      * `n`, `n_gp`, `cum_loss`, `gp`, `x`, and `G` to calculate the Chain Ladder ultimate. Will 
+      * also use the `inc_loss(int n, vector dev_age, vector gp, vector cum)` function to calculate
+      * the incremental losses.
       * @param n The number of rows in the original data.
       * @param n_gp The number of cohorts. 
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param x A vector of ages.
       * @param cum_loss A vector of cumulative losses by treaty and age. Will need to be converted
-      * to incremental losses for the mean
+      * to incremental losses for the mean, using the `inc_loss(int n, vector dev_age, vector gp, vector cum)`
+      * function.
+      * @param G A vector with the percent of ultimate loss corresponding to each age in x.
+      * @return A vector of length `n` with the mean of each triangle cell in the Clark model.
+      * This mean is the Chain Ladder ultimate for the group corresponding to a row in the data
+      * multiplied by the difference between the current age and the prior age.
+      */
+   vector chain_ladder_mean(int n, int n_gp, int[] gp, vector x, vector cum_loss, vector G) {
+      // initialize the mean
+      vector[n] cl_mean;
+
+      // initialize the incremental mean
+      vector[n] inc_mean;
+
+      // initialize the incremental losses
+      vector[n] inc_loss;
+
+      // initialize the Chain Ladder ultimate
+      vector[n_gp] cl_ult;
+
+      // initialize the prior percent of ultimate loss
+      vector[n] prior_G;
+
+      // calculate the prior percent of ultimate loss using `prior_value(int n, vector dev_age, vector gp, vector x)`
+      prior_G = prior_value(n, x, gp, G);
+
+      // calculate the Chain Ladder ultimate
+      cl_ult = chain_ladder_ultimate(n, n_gp, inc_loss, gp, x, G);
+
+      // calculate the chain ladder mean incremental losses
+      for(i in 1:n) {
+         inc_mean[i] = cl_ult[gp[i]] * (G[i] - prior_G[i]);
+      }
+
+      // calculate the chain ladder mean cumulative losses using `cum_loss(int n, vector dev_age, vector gp, vector inc)`
+      cl_mean = cum_loss(n, x, gp, inc_mean);
+
+      // return the mean
+      return cl_mean;
+   }
+
+   /**
+      * @title Cape Cod Mean of triangle cell in Clark model
+      * @description Calculate the mean of a triangle cell in the Clark model. The calculation 
+      
+      
+
 
 
    /**
