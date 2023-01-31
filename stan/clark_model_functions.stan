@@ -1,12 +1,14 @@
   /**
       * @title Log-logistic distribution
-      * @description The log-logistic distribution is a continuous probability distribution with parameters \code{warp} and \code{theta}. It is a member of the family of generalized logistic distributions.
+      * @description The log-logistic distribution is a continuous probability distribution with parameters
+      * `warp` and `theta`. This is the parameterization from Clark (2004).
       * @param n Integer number of rows in the data.
       * @param x A vector of values at which to evaluate the log-logistic distribution.
       * @param warp A real number that controls the shape of the distribution.
       * @param theta A real number that controls the scale of the distribution.
       * @return A vector of values of the log-logistic distribution at the values specified by \code{x}.
       * @references \url{https://en.wikipedia.org/wiki/Log-logistic_distribution}
+      * @references Clark, David. (2004)
       * @examples
       * > G_loglogistic(1:10, 1, 1)
       * > // for example, the final value is 0.37142857, calculated as follows:
@@ -25,6 +27,153 @@
       // return the vector of log-logistic distribution values
       return out;
    }
+
+   /**
+      * @title Weibull distribution function (`G`)
+      * @description The Weibull distribution is a continuous probability distribution with parameters
+      * `warp` and `theta`. This is the parameterization from Clark (2004), namely
+      * `G(x) = 1 - exp( -(x/theta)^warp )`
+      * @param `n` Integer number of rows in the data.
+      * @param `x` A vector of values at which to evaluate the Weibull distribution.
+      * @param `warp` A real number that controls the shape of the distribution.
+      * @param `theta` A real number that controls the scale of the distribution.
+      * @return A vector of values of the Weibull distribution at the values specified by `x`.
+      * @references \url{https://en.wikipedia.org/wiki/Weibull_distribution}
+      * @references Clark, David. (2004)
+      * @examples
+      * > G_weibull(1:10, 0.1, 10)
+      * # (0.548, 0.573, 0.588, 0.598, 0.607, 0.613, 0.619, 0.624, 0.628, 0.632)
+      * > // for example, the second value is calculated as follows:
+      * > // 1 - exp( -(1/10)^0.1 ) = 1 - exp( -(0.1 ^ 0.1) ) = 1 - exp( -0.7943 ) = 0.573
+      */
+   vector G_weibull(int n, vector x, real warp, real theta) {
+      vector[n] out;
+      
+      // loop through the data and calculate the Weibull distribution
+      for(i in 1:n){
+         // calculate the Weibull distribution
+         out[i] = 1 - exp( -(x[i]/theta) ^ warp );
+         }
+      
+      // return the vector of Weibull distribution values
+      return out;
+   }
+
+   /**
+      * @title General ELR Calculation
+      * @description Use an arbitrary payment pattern `G` (not necessarily from the function above),
+      * as well as loss data and exposure data, to calculate the ELR using the Cape Cod formula:
+      * `ELR(x) = \sum \text{incremental loss} / \sum \text{(cum. exposure)} * (G(x) - G(x-1))`
+      * where the `G` function is the arbitrary payment pattern, and the age `x`
+      * is the most recent age in the development period for the specific treaty. `x-1` is the age
+      * immediately preceding `x`, which may not necessarily be the same as `x-1` in the data. For example,
+      * if the most recent age in the development period is 24, but the development periods are based on a
+      * full year, then the age immediately preceding 24 is 12, not 23. This is because the development
+      * periods are based on calendar years, not on the age of the policyholder. 
+      * If the current age is the minimum age in the development period, then the age immediately preceding
+      * `x` is `0` which is never in the data. In this case, `G(0)` is assumed to be `0`, and `G(x) - G(x-1)`
+      * is simply `G(x)`.
+      * @param n Integer number of rows in the data.
+      * @param cum_loss A vector of cumulative losses. (Will need to convert to incremental losses.)
+      * @param cum_exposure A vector of cumulative exposures.
+      * @param x A vector of values at which to evaluate the payment pattern. These values are the development ages.
+      * @param gp A vector identifying the cohort to which each row of the data belongs, used to calculate the 
+      * incremental loss at each development age. The values in this vector should be integers, starting at 1.
+      * Should typically expect this to refer to `accident_year`.
+      * @param G A vector of values of the payment pattern at the values specified by `x`.
+      * @return The ELR for the given payment pattern, loss data, and exposure data.
+      * @examples
+      * > G = (0.25, 0.5, 0.75, 1)
+      * > n = 10
+      * > gp = (1, 1, 1, 1, 2, 2, 2, 3, 3, 4)
+      * > x = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+      * > cum_loss = (100, 200, 300, 400, 500, 650, 800, 900, 1000, 1200)
+      * > cum_exposure = (10000, 10000, 10000, 10000, 50000, 50000, 50000, 80000, 80000, 100000)
+      * > ELR(n, cum_loss, cum_exposure, x, gp, G)
+      * > # incr_loss = (100, 100, 100, 100, 500, 150, 800, 100, 100, 1200)
+      * > # note that the 5th incremental loss is 500, not 150, because the 5th row of the data
+      * > # is in a different cohort (gp = 2) than the 4th row (gp = 1).
+      * > # the first value is calculated as follows:
+      * > # numerator = sum(incr_loss) = 100 + 100 + 100 + 100 + 500 + 150 + 800 + 100 + 100 + 1200 = 3000
+      * > # denominator = sum[cum_exposure(x) * (G(x) - G(x-1))] = 
+      * > # (10000 * (0.25 - 0)) + (10000 * (0.5 - 0.25)) + (10000 * (0.75 - 0.5)) + (10000 * (1 - 0.75)) +
+      * > # (50000 * (0.25 - 0)) + (50000 * (0.5 - 0.25)) + (50000 * (0.75 - 0.5)) +
+      * > # (80000 * (0.25 - 0)) + (80000 * (0.5 - 0.25)) +
+      * > # (100000 * (0.25 - 0)) =
+      * > # 2500 + 2500 + 2500 + 2500 +
+      * > # 12500 + 12500 + 12500 +
+      * > # 20000 + 20000 +
+      * > # 25000 = 
+      * > # 10000 + 37500 + 40000 + 25000 = 112500
+      * > # ELR = 3000 / 112500 = 0.0266
+      */
+   real ELR(int n, vector cum_loss, vector cum_exposure, vector x, vector gp, vector G) {
+      // convert cumulative loss to incremental loss
+      vector[n] incr_loss;
+      vector[n] sorted_incr_loss;
+
+      // initialize the ELR, which is the output
+      real ELR;
+
+      // initialize the numerator of the ELR, which is the sum of the incremental loss
+      real numerator = 0;
+
+      // initialize the denominator of the ELR, which is the sum of the cumulative exposure
+      // times the difference between the payment pattern at the current age and the payment
+      // pattern at the previous age
+      real denominator = 0;
+
+      // store the current order of the data as the row number of the input data
+      vector[n] cur_order = 1:n;
+
+      // sort the data by gp and x
+      vector[n] sorted_cum_loss = cum_loss[order(gp, x)];
+      vector[n] sorted_cum_exposure = cum_exposure[order(gp, x)];
+      vector[n] sorted_gp = gp[order(gp, x)];
+      vector[n] sorted_x = x[order(gp, x)];
+      vector[n] sorted_order = cur_order[order(gp, x)];
+      
+      // initialize the first value of incr_loss
+      sorted_incr_loss[1] = sorted_cum_loss[1];
+
+      // calculate the incremental loss
+      for (i in 2:n) {
+         if (sorted_gp[i] == sorted_gp[i-1]) {
+            sorted_incr_loss[i] = sorted_cum_loss[i] - sorted_cum_loss[i-1];
+         } else {
+            sorted_incr_loss[i] = sorted_cum_loss[i];
+         }
+      }
+
+      // calculate the numerator
+      numerator = sum(sorted_incr_loss);
+
+      // calculate the denominator
+      for (i in 1:n) {
+         // if the current age is 1, then the payment pattern is just G[1], so add the cumulative exposure
+         // times G[1] to the denominator
+         if (sorted_x[i] == 1) {
+            denominator = denominator + sorted_cum_exposure[i] * G[1];
+         } 
+         
+         // if the current age is not 1 and this is not the first row, then the payment pattern is
+         // G[x] - G[x-1], so add the cumulative exposure
+         else {
+            denominator = denominator + sorted_cum_exposure[i] * (G[sorted_x[i]] - G[sorted_x[i] - 1]);
+         }
+      }
+
+      // calculate the ELR
+      ELR = numerator / denominator;
+
+      return ELR;
+   }
+      
+
+
+
+
+
 
 
    /**
