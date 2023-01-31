@@ -1,4 +1,75 @@
   /**
+      * @title Incremental Loss Calculation
+      * @description Calculate the incremental loss by group and age. This is the incremental loss
+      * for a given age, calculated as the difference between the cumulative loss at that age and the
+      * cumulative loss at the previous age. The first age in the development period is assumed to be
+      * `1`, and the incremental loss for that age is simply the cumulative loss at that age. The incremental
+      * loss for the second age is the difference between the cumulative loss at that age and the cumulative
+      * loss at the first age. The incremental loss for the third age is the difference between the cumulative
+      * loss at that age and the cumulative loss at the second age, and so on.
+      * @param n Integer number of rows in the data.
+      * @param dev_age A vector of development ages.
+      * @param gp A vector of group numbers. This is used to calculate the incremental loss by group. Only subtract
+      * the cumulative loss at the previous age if the group number is the same.
+      * @param cum A vector of cumulative whatevers.
+      * @return A vector of incremental losses.
+      * @examples
+      * > inc_loss(10, (1,2,3,4,1,2,3,1,2,1), (1,1,1,1,2,2,2,3,3,4), (1,4,9,16,25,36,49,64,81,100))
+      * [1]  1  3  5  7  9 11 13 15 17 19
+      * > # for example, the first value is 1, because the cumulative loss at age 1 is 1, and there are no
+      * > # previous ages to subtract from. The second value is 3, because the cumulative loss at age 2 is 4,
+      * > # and the cumulative loss at age 1 is 1, AND the group number is the same (1). The third value is 5,
+      * > # because the cumulative loss at age 3 is 9, and the cumulative loss at age 2 is 4, AND the group
+      * > # number is the same (1). The fifth value is 25, because the cumulative loss at age 1 for group 2 is 25,
+      * > # and there are no previous ages to subtract from in that group.
+      */
+   vector inc_loss(int n, vector dev_age, vector gp, vector cum) {
+      // initialize the vector of incremental losses (sorted and original order)
+      vector[n] out;
+      vector[n] out_sorted;
+
+      // capture the current order of the data
+      vector[n] cur_order = 1:n;
+
+      // sort the data by group number and development age (ascending) so
+      // that the incremental loss can be calculated by group and age in a loop
+      vector[n] sorted_order = sort_indices_2d(gp, dev_age);
+      vector[n] sorted_dev_age = dev_age[sorted_order];
+      vector[n] sorted_gp = gp[sorted_order];
+      vector[n] sorted_cum = cum[sorted_order];
+
+
+      // loop through the data and calculate the incremental loss
+      for(i in 1:n){
+         
+         // the first age in the development period is assumed to be 1, and the incremental loss for that age
+         // is simply the cumulative loss at that age
+         if(i==1){   
+            out_sorted[i] = sorted_cum[i];
+         }
+         
+         // if the group number is the same as the previous age, subtract the cumulative loss at the previous age
+         // from the cumulative loss at the current age
+         else if(sorted_gp[i] == sorted_gp[i-1]){
+            out_sorted[i] = sorted_cum[i] - sorted_cum[i-1];
+         } 
+         
+         // otherwise, just use the cumulative loss at the current age
+         else {
+            out_sorted[i] = sorted_cum[i];
+         }
+      }
+
+      // reorder the incremental losses to match the original order of the data
+      for(i in 1:n){
+         out[sorted_order[i]] = out_sorted[i];
+      }
+
+      // return the vector of incremental losses (original order)
+      return out;
+   }
+  
+  /**
       * @title Log-logistic distribution
       * @description The log-logistic distribution is a continuous probability distribution with parameters
       * `warp` and `theta`. This is the parameterization from Clark (2004).
@@ -197,13 +268,128 @@
       return ELR;
    }
 
-   
+   // function that takes the group, age, and cumulative loss and returns the cumulative loss for each
+   // group that corresponds to the maximum age observed for that group
+   /**
+      * @title Calculation of current cumulative loss by group.
+      * @description Use the group, age, and cumulative loss to calculate the maximum age cumulative
+      * loss for each group. Will require the number of cohorts, the cumulative losses, the cohort
+      * index, and the ages. For each group, cumulative loss that corresponds to the maximum age
+      * observed for that group will be returned.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts.
+      * @param cum_loss A vector of cumulative losses by treaty.
+      * @param gp A vector of groups. Each group is a different cohort.
+      * @param x A vector of ages.
+      * @return A vector of maximum age cumulative loss.
+      * @examples
+      * > cum_loss_by_gp(6, 3, c(100, 200, 300, 400, 500, 600), c(1, 1, 1, 2, 2, 3), c(1, 2, 3, 1, 2, 1))
+      * > # note that the output is a vector of length 3, not 6, because there are only 3 groups
+      * > # note also that the output is sorted by group, not by age
+      * > # maximum age for group 1 is 3, so the output for group 1 is 300
+      * > # maximum age for group 2 is 2, so the output for group 2 is 500
+      * > # maximum age for group 3 is 1, so the output for group 3 is 600
+      * [1] 300 500 600
+      */
+   vector cum_loss_by_gp(int n, int n_gp, vector cum_loss, int[] gp, vector x) {
+      // initialize the vector of maximum age cumulative loss
+      vector[n_gp] max_age_cum_loss;
+      int max_age = 0;
+
+      // loop through the groups
+      for (i in 1:n_gp) {
+         // initialize the maximum age for the current group
+         max_age = 0;         
+
+         // loop through the ages
+         for (j in 1:n) {
+
+            // if the current group is equal to the current group in the loop, then check the age
+            if (gp[j] == i) {
+
+               // if the current age is greater than the current maximum age, then update the maximum age
+               if (x[j] > max_age) {
+                  max_age = x[j];
+               }
+            }
+         }
+
+         // loop through the ages again to find the cumulative loss that corresponds to the maximum age
+         // we found in the previous loop
+         for (j in 1:n) {
+
+            // if the current group is equal to the current group in the loop, then check the age
+            if (gp[j] == i) {
+
+               // if the current age is equal to the maximum age, then update the maximum age cumulative loss
+               if (x[j] == max_age) {
+                  max_age_cum_loss[i] = cum_loss[j];
+               }
+            }
+         }
+      }
+
+      // return the maximum age cumulative loss
+      return max_age_cum_loss;
+   }
+
+   /**
+      * @title Calculation of maximum age by group.
+      * @description Use the group and age to calculate the maximum age for each group. Will require
+      * the number of rows, the number of cohorts, the cohort index, and the ages. For each group, the
+      * maximum age observed for that group will be returned.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts.
+      * @param gp A vector of groups. Each group is a different cohort.
+      * @param x A vector of ages.
+      * @return A vector of maximum age.
+      * @examples
+      * > max_age_by_gp(6, 3, c(1, 1, 1, 2, 2, 3), c(1, 2, 3, 1, 2, 1))
+      * > # note that the output is a vector of length 3, not 6, because there are only 3 groups
+      * > # note also that the output is sorted by group, not by age
+      * > # maximum age for group 1 is 3
+      * > # maximum age for group 2 is 2
+      * > # maximum age for group 3 is 1
+      * [1] 3 2 1
+      */
+   vector max_age_by_gp(int n, int n_gp, int[] gp, vector x) {
+      // initialize the vector of maximum age
+      vector[n_gp] max_age;
+      int max_age_temp = 0;
+
+      // loop through the groups
+      for (i in 1:n_gp) {
+         // initialize the maximum age for the current group
+         max_age_temp = 0;         
+
+         // loop through the ages
+         for (j in 1:n) {
+
+            // if the current group is equal to the current group in the loop, then check the age
+            if (gp[j] == i) {
+
+               // if the current age is greater than the current maximum age, then update the maximum age
+               if (x[j] > max_age_temp) {
+                  max_age_temp = x[j];
+               }
+            }
+         }
+
+         // update the maximum age for the current group
+         max_age[i] = max_age_temp;
+      }
+
+      // return the maximum age
+      return max_age;
+   }
+      
    
    /**
       * @title Calculation of chain ladder ultimate
       * @description Use the payment pattern as well as cumulative losses by cohort to calculate
       * the chain ladder ultimate loss by cohort. Will require the number of cohorts, the cumulative
       * losses, the cohort index, the ages, and the payment pattern.
+      * @param n The number of rows in the original data.
       * @param n_gp The number of cohorts.
       * @param cum_loss A vector of cumulative losses by treaty.
       * @param gp A vector of groups. Each group is a different cohort. The groups should be
@@ -213,41 +399,22 @@
       * @param G A vector with the percent of ultimate loss corresponding to each age in x.
       * @return A vector of chain ladder ultimate losses by cohort.
       */
-   vector chain_ladder_ult(int n_gp, vector cum_loss, int[] gp, vector x, vector G) {
+   vector chain_ladder_ult(int n, int n_gp, vector cum_loss, int[] gp, vector x, vector G) {
       // initialize the chain ladder ultimate
       vector[n_gp] chain_ladder;
 
-      // initialize the cumulative loss by cohort
-      vector[n_gp] cum_loss_by_gp;
-
       // initialize the percent of ultimate loss by cohort
-      vector[n_gp] G_by_gp;
+      vector[n_gp] G_gp;
 
-      // initialize the maximum age by cohort
-      vector[n_gp] max_x_by_gp;
+      // initialize the cumulative loss by cohort
+      vector[n_gp] cum_loss_gp;
 
-      // initialize the index of the maximum age by cohort
-      vector[n_gp] max_x_index_by_gp;
+      // find the cum_loss_by_gp using the cum_loss_by_gp function
+      cum_loss_gp = cum_loss_by_gp(n, n_gp, cum_loss, gp, x);
 
-      // find the maximum age by cohort
-      for (i in 1:n_gp) {
-         max_x_by_gp[i] = max(x[gp == i]);
-      }
-
-      // find the index of the maximum age by cohort
-      for (i in 1:n_gp) {
-         max_x_index_by_gp[i] = max(find(x[gp == i] == max_x_by_gp[i]));
-      }
-
-      // find the cumulative loss by cohort
-      for (i in 1:n_gp) {
-         cum_loss_by_gp[i] = cum_loss[max_x_index_by_gp[i]];
-      }
-
-      // find the percent of ultimate loss by cohort
-      for (i in 1:n_gp) {
-         G_by_gp[i] = G[max_x_index_by_gp[i]];
-      }
+      // note that the cum_loss_by_gp function does not really use the fact that it 
+      // is looking at loss, so I can use it to find the the value of G by cohort
+      G_gp = cum_loss_by_gp(n, n_gp, G, gp, x);
 
       // calculate the chain ladder ultimate
       chain_ladder = cum_loss_by_gp ./ G_by_gp;
@@ -258,79 +425,124 @@
 
    /**
       * @title Calculation of Cape Cod ultimate
-      * @description Use the payment pattern from the function above, as well as loss data and exposure data
-      * to calculate the Cape Cod ultimate ult = cumulative loss + (elr * exposure * (1 - G)).
-      * @param cum_loss A vector of cumulative losses by treaty.
-      * @param cum_exposure A vector of cumulative exposures by treaty.
-      * @param elr A real number of the overall ELR.
-      * @param G A vector of percentages of ultimate loss the cumulative loss represents.
-      * @return A real number of the chain ladder ultimate for each treaty.
-      * @examples
-      * > cape_cod_ult(c(10, 20, 30, 40, 50), c(100, 200, 300, 400, 500), 0.37142857, c(0.091,0.111,0.133,0.158,0.185))
-      * > // the first value is calculated as follows:
-      * > // 10 + (0.37142857 * 100 * (1 - 0.091)) = 10 + (0.37142857 * 100 * 0.909) = 10 + (37.142857 * 0.909) = 10 + 33.571428 = 43.571428
-      * [1]  43.57143  80.18018 108.10811 129.74684 144.14414
+      * @description Use the cumulative losses, cumulative exposures, percent of ultimate loss,
+      * cohort group, and ages to calculate the Cape Cod ultimate loss by cohort. Will require
+      * first calculating the cumulative loss by cohort, then calculating the cumulative exposure
+      * by cohort, then calculating the percent of ultimate loss by cohort, then calculating the
+      * expected loss ratio, and finally calculating the Cape Cod ultimate loss by cohort.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts.
+      * @param cum_loss A vector of cumulative losses by treaty and age.
+      * @param cum_exposure A vector of cumulative exposures by treaty and age.
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param x A vector of ages.
+      * @param G A vector with the percent of ultimate loss corresponding to each age in x.
+      * @return A vector of Cape Cod ultimate losses by cohort.
       */
-   vector cape_cod_ult(vector cum_loss, vector cum_exposure, real elr, vector G) {
-      return cum_loss + (elr * cum_exposure .* (1 - G));
+   vector cape_cod_ult(int n, int n_gp, vector cum_loss, vector cum_exposure, int[] gp, vector x, vector G) {
+      // initialize the Cape Cod ultimate
+      vector[n_gp] cape_cod;
+
+      // initialize the cumulative loss, cumulative exposure, and percent of ultimate loss by cohort
+      vector[n_gp] cum_loss_gp;
+      vector[n_gp] cum_exposure_gp;
+      vector[n_gp] G_gp;
+
+      // initialize the ELR
+      real elr;
+
+      // calculate cumulative loss by cohort
+      cum_loss_gp = cum_loss_by_gp(n, n_gp, cum_loss, gp, x);
+
+      // calculate cumulative exposure by cohort
+      cum_exposure_gp = cum_loss_by_gp(n, n_gp, cum_exposure, gp, x);
+
+      // calculate the percent of ultimate loss by cohort
+      G_gp = cum_loss_by_gp(n, n_gp, G, gp, x);
+
+      // calculate the ELR using the ELR function
+      elr = ELR(n, cum_loss, cum_exposure, x, gp, G);
+
+      // calculate the Cape Cod ultimate = (cumulative loss) + (ELR * cumulative exposure * (1 - G))
+      for(i in 1:n_gp) {
+         cape_cod[i] = 
+            // cumulative loss
+            cum_loss_gp[i] +
+            
+            // Cape Cod expected unrealized loss
+            (  
+               elr *
+               cum_exposure_gp[i] *
+               (1 - G_gp[i])
+            );
+      }
+
+      // return the Cape Cod ultimate
+      return cape_cod;
    }
 
    /** 
       * @title Calculation of Benktander ultimate
-      * @description Use the chain ladder ultimate, Cape Cod ultimate, and G
-      * to calculate the Benktander ultimate ult = (chain ladder ultimate * G) + (Cape Cod ultimate * (1 - G)).
-      * @param chain_ladder_ult A vector of chain ladder ultimate values by treaty.
-      * @param cape_cod_ult A vector of Cape Cod ultimate values by treaty.
-      * @param G A vector of percentages of ultimate loss as of the most recent development period for each treaty.
+      * @description Use the chain ladder ultimate, Cape Cod ultimate, and percent of ultimate
+      * loss to calculate the Benktander ultimate loss by cohort. Will require first calculating
+      * the percent of ultimate loss by cohort, the chain ladder ultimate by cohort, and the
+      * Cape Cod ultimate by cohort. Then the Benktander ultimate is calculated as the weighted
+      * average of the chain ladder ultimate and the Cape Cod ultimate, where the weights given 
+      * to the chain ladder is the percent of ultimate loss by cohort, and the weights given to
+      * the Cape Cod ultimate is 1 - the percent of ultimate loss by cohort.
+      * Calculates from first principles, so need all the variables to calculate the chain ladder
+      * ultimate and the Cape Cod ultimate.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts.
+      * @param cum_loss A vector of cumulative losses by treaty and age.
+      * @param cum_exposure A vector of cumulative exposures by treaty and age.
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param x A vector of ages.
+      * @param G A vector with the percent of ultimate loss corresponding to each age in x.
       * @return A real number of the Benktander ultimate for each treaty.
-      * @examples
-      * > benktander_ult(c(109.8901, 180.1802, 225.2252, 253.1646, 270.2703)
-            , c( 43.57143,  80.18018, 108.10811, 129.74684, 144.14414)
-            , c(0.091,0.111,0.133,0.158,0.185)
-            )
-      * > // the first value is calculated as follows:
-      * > // (109.8901 * 0.091) + (43.57143 * 0.909) = 10.08901 + 39.482997 = 49.571007
-      * > // the last value is calculated as follows:
-      * > // (270.2703 * 0.185) + (144.14414 * 0.815) = 50.251055 + 117.893126 = 168.144181
-      * [1]  49.57101  89.36036 120.12012 143.24324 168.14418
       */
-   vector benktander_ult(vector chain_ladder_ult, vector cape_cod_ult, vector G) {
-      // the . notation below means element-wise multiplication
-      // in stan, the * operator is matrix multiplication,
-      // so if I did not include the ., the result would be a matrix
-      return (chain_ladder_ult .* G) + (cape_cod_ult .* (1 - G));
-   }
+   vector benktander_ultimate(int n, int n_gp, vector cum_loss, vector cum_exposure, int[] gp, vector x, vector G) {
+      // initialize the Benktander ultimate
+      vector[n_gp] benktander;
 
-   // convenience function to calculate the Benktander ultimate from the data instead of
-   // having to pass in the chain ladder ultimate, Cape Cod ultimate, elr, and G separately
-   // uses the functions above, including elr_loglogistic and G_loglogistic for the elr and G
-   // calculations
-   vector benktander_ultimate_from_data(int n, vector cum_loss, vector cum_exposure, vector age, vector params) {
-      vector[n] G = G_loglogistic(n, age, params[1], params[2]);
-      
+      // initialize the chain ladder ultimate and the Cape Cod ultimate
+      vector[n_gp] chain_ladder_ult;
+      vector[n_gp] cape_cod_ult;
+
       // calculate the chain ladder ultimate
-      vector[n] chain_ladder = cum_loss ./ G;
-      
-      // calculate the ELR
-      real elr = elr_loglogistic(n, cum_loss, cum_exposure, age, params[1], params[2]);
+      chain_ladder_ult = chain_ladder_ultimate(n, n_gp, cum_loss, gp, x, G);
 
-      // initialize the cape cod ultimate vector and the benktander ultimate vector
-      vector[n] cape_cod;
-      vector[n] benktander;
+      // calculate the Cape Cod ultimate
+      cape_cod_ult = cape_cod_ult(n, n_gp, cum_loss, cum_exposure, gp, x, G);
 
-      for(i in 1:n){
-         // calculate the cape cod ultimate
-         cape_cod[n] = cum_loss[n] + (elr * cum_exposure[n] * (1 - G[n]));
+      // calculate the Benktander ultimate = [(chain ladder ultimate) * G] + [(Cape Cod ultimate) * (1 - G)]
+      for(i in 1:n_gp) {
+         benktander[i] = (chain_ladder_ult[i] * G[i]) + (cape_cod_ult[i] * (1 - G[i]));
       }
-     
-     for(i in 1:n){
-         // calculate the benktander ultimate
-         benktander[n] = (G[n] * chain_ladder[n] ) + ((1 - G[n]) * cape_cod[n]);
-     }
-     
-     // return the benktander ultimate
-     return benktander;
+      
+      // return the Benktander ultimate
+      return benktander;
    }
+
+   
+
+   /** 
+      * @title Chain Ladder Mean of triangle cell in Clark model
+      * @description Calculate the mean of a triangle cell in the Clark model. The mean is the
+      * Chain Ladder ultimate multiplied by the difference between the current age and the prior age.
+      * The current age is the age of the treaty at the current development period. The prior age is
+      * the age of the treaty at the closest prior development period, unless the current age is the 
+      * first age, in which case the prior age is 0, and so G(prior age) = 0. Will need the parameters
+      * `n`, `n_gp`, `cum_loss`, `gp`, `x`, and `G` to calculate the Chain Ladder ultimate.
+      * @param n The number of rows in the original data.
+      * @param n_gp The number of cohorts. 
+      * @param cum_loss A vector of cumulative losses by treaty and age. Will need to be converted
+      * to incremental losses for the mean
+
 
    /**
       * @title Prior mean
