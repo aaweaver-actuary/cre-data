@@ -169,46 +169,36 @@
       return ELR;
    }
       
-
-
-
-
-
-
-
    /**
-      * @title Calculation of ELR
-      * @description Use the payment pattern from the function above, as well as loss data and exposure data, to calculate the ELR using the Cape Cod formula:
-      * \deqn{ELR = \frac{\sum \text{cum. loss}}{\sum \text{(cum. exposure) * G_loglogistic}}}
-      * where the \code{G_loglogistic} function is the log-logistic distribution from above, and the age `x`
-      * is the most recent age in the development period for the specific treaty.
-      * @param n Integer number of rows in the data.
-      * @param cum_loss A vector of cumulative losses.
-      * @param cum_exposure A vector of cumulative exposures.
-      * @param x A vector of values at which to evaluate the log-logistic cumulative distribution function.
-      * @param warp A real number that controls the shape of the distribution.
-      * @param theta A real number that controls the scale of the distribution.
-      * @return A real number of the ELR for each treaty.
-      * @examples
-      * > G_loglogistic(1:5, 1, 1)
-      * [1] 0.09090909 0.11111111 0.13333333 0.15789474 0.18518519
-      * > elr_loglogistic(c(10, 20, 30, 40, 50), c(100, 200, 300, 400, 500), 1:5, 1, 1)
-      * [1] 0.37142857
+      * @title Calculation of ELR for the log-logistic cumulative distribution function.
+      * @description Uses the `ELR` function and the `G_loglogistic` function to calculate the
+      * ELR for the log-logistic cumulative distribution function. Will require all the parameters
+      * that are required for the `ELR` function, as well as the parameters for the `G_loglogistic`
+      * function.
+      * @param n The number of rows in the data.
+      * @param cum_loss A vector of cumulative losses by treaty.
+      * @param cum_exposure A vector of cumulative exposures by treaty.
+      * @param x A vector of ages.
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param warp The warp parameter for the log-logistic cumulative distribution function.
+      * @param theta The theta parameter for the log-logistic cumulative distribution function.
+      * @return The ELR for the log-logistic cumulative distribution function.
       */
-   real elr_loglogistic(int n, vector cum_loss, vector cum_exposure, vector x, real warp, real theta) {
-      real loss_sum = 0;
-      real exposure_sum = 0;
+   real ELR_loglogistic(int n, vector cum_loss, vector cum_exposure, vector x, vector gp, real warp, real theta) {
+      // calculate the payment pattern
+      vector[n] G = G_loglogistic(n, x, warp, theta);
 
-      // calculate the sum of the product of the cumulative exposure and the log-logistic distribution
-      for (i in 1:n) {
-         loss_sum += cum_loss[i];
-         exposure_sum += cum_exposure[i] * G_loglogistic(n, x, warp, theta)[i];
-      }
+      // calculate the ELR
+      real ELR = ELR(n, cum_loss, cum_exposure, x, gp, G);
 
       // return the ELR
-      return loss_sum / exposure_sum;
+      return ELR;
    }
 
+   
+   
    /**
       * @title Calculation of chain ladder ultimate
       * @description Use the payment pattern from the function above, as well as loss data
