@@ -175,5 +175,37 @@ stan_data <- list(
   
 )
 
-# read in file from: O:\PARM\Corporate Actuarial\Reserving\Scripts\stan\cre_model\cre_model.stan
-cre_model <- stan_model(file="cre_model.stan")
+# read in text from: O:\PARM\Corporate Actuarial\Reserving\Scripts\stan\cre_model\cre_model.stan:
+base_model_text <- readLines("cre_model.stan")
+
+# also get functions:
+clark_functions_text <- readLines("clark_model_functions.stan")
+exponentially_modified_gaussian_text <- readLines("exponentially_modified_gaussian.stan")
+
+# combine into one string, wrapping the two functions in curly braces with "functions" before them
+cre_model_text <- paste0("functions {", clark_functions_text, exponentially_modified_gaussian_text, "}", base_model_text)
+
+# list of initial values for parameters
+cre_init <- list(
+  total_log_params=c(log(3), log(48))
+  , total_log_param_sigmas=c(0.5, 2)
+  , total_rho=0
+  , total_sigma=123456789
+  , total_loss_skew=0.5
+
+)
+
+# fit model
+cre_model <- stan(
+  model_code=cre_model_text
+  , data=stan_data
+  , iter=10000
+  , chains=3
+  , cores=3
+  , warmup=2000
+  , init=list(
+      cre_init
+      , cre_init
+      , cre_init
+      )
+  )
