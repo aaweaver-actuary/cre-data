@@ -201,19 +201,59 @@
    
    /**
       * @title Calculation of chain ladder ultimate
-      * @description Use the payment pattern from the function above, as well as loss data
-      * to calculate the chain ladder ultimate ult = cumulative loss / G.
+      * @description Use the payment pattern as well as cumulative losses by cohort to calculate
+      * the chain ladder ultimate loss by cohort. Will require the number of cohorts, the cumulative
+      * losses, the cohort index, the ages, and the payment pattern.
+      * @param n_gp The number of cohorts.
       * @param cum_loss A vector of cumulative losses by treaty.
-      * @param G A vector of percentages of ultimate loss the cumulative loss represents.
-      * @return A real number of the chain ladder ultimate for each treaty.
-      * @examples
-      * > chain_ladder_ult(c(10, 20, 30, 40, 50), c(0.091,0.111,0.133,0.158,0.185))
-      * > // the first value is calculated as follows:
-      * > // 10 / 0.091 = 109.8901
-      * [1] 109.8901 180.1802 225.2252 253.1646 270.2703
+      * @param gp A vector of groups. Each group is a different cohort. The groups should be
+      * integers, starting at 1. These usually correspond to the accident year or the treaty
+      * year.
+      * @param x A vector of ages.
+      * @param G A vector with the percent of ultimate loss corresponding to each age in x.
+      * @return A vector of chain ladder ultimate losses by cohort.
       */
-   vector chain_ladder_ult(vector cum_loss, vector G) {
-      return cum_loss ./ G;
+   vector chain_ladder_ult(int n_gp, vector cum_loss, int[] gp, vector x, vector G) {
+      // initialize the chain ladder ultimate
+      vector[n_gp] chain_ladder;
+
+      // initialize the cumulative loss by cohort
+      vector[n_gp] cum_loss_by_gp;
+
+      // initialize the percent of ultimate loss by cohort
+      vector[n_gp] G_by_gp;
+
+      // initialize the maximum age by cohort
+      vector[n_gp] max_x_by_gp;
+
+      // initialize the index of the maximum age by cohort
+      vector[n_gp] max_x_index_by_gp;
+
+      // find the maximum age by cohort
+      for (i in 1:n_gp) {
+         max_x_by_gp[i] = max(x[gp == i]);
+      }
+
+      // find the index of the maximum age by cohort
+      for (i in 1:n_gp) {
+         max_x_index_by_gp[i] = max(find(x[gp == i] == max_x_by_gp[i]));
+      }
+
+      // find the cumulative loss by cohort
+      for (i in 1:n_gp) {
+         cum_loss_by_gp[i] = cum_loss[max_x_index_by_gp[i]];
+      }
+
+      // find the percent of ultimate loss by cohort
+      for (i in 1:n_gp) {
+         G_by_gp[i] = G[max_x_index_by_gp[i]];
+      }
+
+      // calculate the chain ladder ultimate
+      chain_ladder = cum_loss_by_gp ./ G_by_gp;
+      
+      // return the chain ladder ultimate
+      return chain_ladder;
    }
 
    /**
