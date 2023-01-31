@@ -224,19 +224,29 @@ model{
    incremental_paid_loss_per_exposure ~ exp_mod_normal(
       // first parameter is the mean, which is the estimate of incremental loss based on the benktander ultimate
       // and divided by the exposure
-      prior_mean_from_data_nozero(N, treaty_id, development_period, cumulative_loss, exposure, total_params) / exposure,
+      initial_mu(
+         benktander_mean(
+            N, N_treaty_periods, treaty_id, development_period
+            , cum_paid_loss, exposure, G_loglogistic(N, development_period, total_params[1], total_params[2])
+            ) ./ exposure
+         )
+      // prior_mean_from_data_nozero(N, treaty_id, development_period, cumulative_loss, exposure, total_params) / exposure,
 
       // second parameter is the standard deviation, which is the total sigma, and is already divided by the exposure
-      total_sigma,                               
+      // total_sigma,
+      , initial_sigma(
+         benktander_mean(
+            N, N_treaty_periods, treaty_id, development_period
+            , cum_paid_loss, exposure, G_loglogistic(N, development_period, total_params[1], total_params[2])
+            ) ./ exposure
+      )
       
       // third parameter is the skewness, which is the total loss skew, and is already divided by the exposure
-      total_loss_skew
+      , pow(initial_tau(
+         benktander_mean(
+            N, N_treaty_periods, treaty_id, development_period
+            , cum_paid_loss, exposure, G_loglogistic(N, development_period, total_params[1], total_params[2])
+            ) ./ exposure
+         ), -1)
       );
-}
-generated quantities {
-   // calculate the cumulative paid loss using the inc_to_cum function from the `cre_model_functions.stan` file
-   // and using the relationship incremental_paid_loss = incremental_paid_loss_per_exposure * exposure
-   real cumulative_paid_loss = inc_to_cum(N, incremental_paid_loss_per_exposure * exposure, treaty_id);
-
-
 }
